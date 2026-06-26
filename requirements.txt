@@ -1,0 +1,10 @@
+# Core (default engine + auto-detect). This alone makes the app fully work.
+argostranslate>=1.9
+langdetect>=1.0.9
+
+# --- Optional small-LLM engines (install only if you want them) ---
+# Apple Silicon MLX backend (default model: Rapid42/gemma-4-E2B-it-MLX):
+#   pip install mlx-lm
+# llama.cpp backend with a small Gemma 4 GGUF:
+#   pip install llama-cpp-python
+#   export AUTO_TRANSLATE_GGUF=/path/to/gemma-4-E2B-it.gguf

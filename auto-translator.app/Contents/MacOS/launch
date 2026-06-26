@@ -1,0 +1,60 @@
+#!/bin/bash
+# auto-translator launcher (double-clickable .app on macOS).
+# Resolves the project dir, ensures a venv + deps on first run, starts the
+# local server, and opens the browser. Stays alive while the server runs so
+# quitting the app (Dock > Quit) stops it.
+
+set -e
+
+# Project dir: normally the folder containing this .app. If the .app has been
+# moved (e.g. to /Applications or the Dock), fall back to the known location.
+PROJECT="$(cd "$(dirname "$0")/../../.." && pwd)"
+if [ ! -f "$PROJECT/app.py" ]; then
+  PROJECT="/path/to/auto-translator"
+fi
+cd "$PROJECT"
+
+URL="http://127.0.0.1:8765"
+
+# Already running? Just focus the browser and exit.
+if curl -s -o /dev/null --max-time 1 "$URL/api/config"; then
+  open "$URL"
+  exit 0
+fi
+
+LOG="$PROJECT/app.log"
+
+# Find a Python to bootstrap the venv if it doesn't exist yet. GUI launches
+# don't inherit your shell PATH, so we probe known locations explicitly.
+find_python() {
+  for p in \
+    "$PROJECT/.venv/bin/python" \
+    "$HOME/.pyenv/versions/3.13.9/bin/python3" \
+    "$HOME/.pyenv/shims/python3" \
+    "$(command -v python3 2>/dev/null)" \
+    /opt/homebrew/bin/python3 \
+    /usr/local/bin/python3 \
+    /usr/bin/python3 ; do
+    [ -n "$p" ] && [ -x "$p" ] && { echo "$p"; return 0; }
+  done
+  return 1
+}
+
+if [ ! -x "$PROJECT/.venv/bin/python" ]; then
+  BOOT="$(find_python)" || {
+    osascript -e 'display alert "auto-translator" message "Python 3 が見つかりませんでした。Terminal で ./run.sh を実行してください。"'
+    exit 1
+  }
+  {
+    echo "=== first-run setup $(date) ==="
+    "$BOOT" -m venv "$PROJECT/.venv"
+    "$PROJECT/.venv/bin/pip" install --upgrade pip
+    "$PROJECT/.venv/bin/pip" install -r "$PROJECT/requirements.txt"
+  } >>"$LOG" 2>&1
+fi
+
+# Open the browser shortly after the server comes up.
+( sleep 1; open "$URL" ) &
+
+# Run the server in the foreground so this process == the app's lifetime.
+exec "$PROJECT/.venv/bin/python" "$PROJECT/app.py" --no-browser >>"$LOG" 2>&1

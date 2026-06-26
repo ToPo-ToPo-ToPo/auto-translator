@@ -1,0 +1,16 @@
+# Python virtual environment
+.venv/
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Runtime logs
+app.log
+
+# macOS
+.DS_Store
+
+# Local editor/agent settings
+.claude/settings.local.json
