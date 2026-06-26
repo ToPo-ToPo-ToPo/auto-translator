@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """auto-translator — a small, standalone, offline-first translation app.
 
-Backend: pluggable engines (Argos Translate by default; MLX / llama.cpp for
-small local LLMs). Frontend: a local web UI served from stdlib http.server —
-type in the box and it translates instantly. No external services.
+Backend: Argos Translate (offline NMT), behind a small pluggable-engine layer.
+Frontend: a local web UI served from stdlib http.server — type in the box and
+it translates instantly. No external services.
 
 Run:   python3 app.py        then open http://127.0.0.1:8765
 """

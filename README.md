@@ -2,16 +2,13 @@
 
 🌐 English version: **[README.en.md](README.en.md)**
 
-DeepL の代わりになる、**単独動作・オフライン優先**のローカル翻訳アプリです。
+DeepL の代わりになる、**単独動作・オフライン**のローカル翻訳アプリです。
 ブラウザUIに文章を入力すると即時に翻訳します。外部API・アカウント不要で、
 最初のモデルDL後はインターネットも不要です。
 
-- **既定エンジン: [Argos Translate](https://github.com/argosopentech/argos-translate)** —
+- **翻訳エンジン: [Argos Translate](https://github.com/argosopentech/argos-translate)** —
   翻訳専用モデル。CPUのみで動作し、1言語ペアあたり約100〜200MB。
   低計算コストで完全オフライン。
-- **任意の小型LLMエンジン**（Gemma 4 系）— UIで切替可能:
-  - **MLX** — Apple Silicon 向け。既定は Gemma 4 **E2B**（E4B でより高品質）。
-  - **llama.cpp** — 任意の小型 Gemma 4 GGUF。
 - **GUI:** Python標準ライブラリだけで動くローカルWebページ。入力するそばから
   翻訳します（原文の言語は自動検出）。
 
@@ -31,8 +28,6 @@ git clone https://github.com/ToPo-ToPo-ToPo/auto-translator.git
 
 - **終了:** Dock アイコンを右クリック →「終了」（サーバも停止します）。
 - 準備の詳細は `app.log` に記録されます。
-- **小型LLM（MLX / Gemma 4 E2B）:** Apple Silicon の Mac では**自動で導入**され、
-  UIのエンジン欄に出ます（モデル本体はそのエンジンを初めて選んだ時にDL）。
 
 > macOS 以外の場合: ターミナルから `uv run python app.py` で起動できます。
 
@@ -62,44 +57,21 @@ git clone https://github.com/ToPo-ToPo-ToPo/auto-translator.git
 > 補足: 起動してもアプリが自動でアプリケーションフォルダへ移動することはありません。
 > 置いた場所にそのまま留まります。
 
-## 小型LLMバックエンド
-
-**MLX（Gemma 4）は Apple Silicon の macOS では自動でインストール**されます。
-UIのエンジン欄で選ぶだけで使えます（モデルの重みは初回選択時にDL）。それ以外の
-プラットフォームではスキップされます。別のMLXモデルを使いたい場合:
-
-```bash
-# E4B（高品質）に上げる / 4bit ビルド（省メモリ）に下げる
-export AUTO_TRANSLATE_MLX_MODEL=Rapid42/gemma-4-E4B-it-MLX
-# export AUTO_TRANSLATE_MLX_MODEL=unsloth/gemma-4-E2B-it-UD-MLX-4bit
-```
-
-llama.cpp エンジンは任意導入です（GGUFファイルが必要）:
-
-```bash
-uv sync --extra llamacpp
-export AUTO_TRANSLATE_GGUF=/path/to/gemma-4-E2B-it.gguf
-```
-
-アプリを再起動すると、エンジン欄に新しいバックエンドが現れます。
-
 ## 設定（環境変数）
 
 | 変数 | 既定値 | 用途 |
 |---|---|---|
 | `AUTO_TRANSLATE_HOST` | `127.0.0.1` | バインドするホスト |
 | `AUTO_TRANSLATE_PORT` | `8765` | ポート |
-| `AUTO_TRANSLATE_MLX_MODEL` | `Rapid42/gemma-4-E2B-it-MLX` | MLXモデルID（Gemma 4 E2B/E4B） |
-| `AUTO_TRANSLATE_GGUF` | _(未設定)_ | llama.cpp エンジン用 GGUF のパス |
 
 ## 構成
 
 ```
 auto-translator.app   ダブルクリック起動の macOS ランチャー（uv sync + uv run app.py）
-pyproject.toml        依存定義（Apple Silicon は MLX 自動 / llamacpp は extra）。uv 管理
+pyproject.toml        依存定義（argostranslate / langdetect）。uv 管理
 app.py                標準ライブラリの HTTPサーバ: /api/config, /api/translate, web/ 配信
 web/index.html        UI（素のJS、入力に連動した自動翻訳）
-engines/              プラガブルなバックエンド（argos / mlx / llamacpp）。遅延import
+engines/              プラガブルなバックエンド（現状 argos のみ）。遅延import
 languages.py          言語リストとコード正規化
 ```
 
@@ -114,17 +86,14 @@ languages.py          言語リストとコード正規化
 ```bash
 ./uninstall.sh                # venv・ログ・キャッシュ・Argos言語モデル
 ./uninstall.sh --keep-models  # Argosモデルは残す
-./uninstall.sh --all          # 本アプリの Gemma 4 LLM のDL分も削除
 ./uninstall.sh --yes          # 確認プロンプトを省略
 ```
 
-削除前に対象とサイズを一覧表示し、確認を求めます。`--all` は**このアプリが
-DLする特定の Gemma 4 リポジトリ**（`Rapid42/gemma-4-E2B-it-MLX` と文書化された
-代替）**のみ**を削除し、共有 Hugging Face キャッシュ内のあなたの他モデルには
-触れません。最後に、Dock から `.app` を外し、プロジェクトフォルダを削除すれば完了です。
+削除前に対象とサイズを一覧表示し、確認を求めます。最後に、Dock から `.app` を外し、
+プロジェクトフォルダを削除すれば完了です。
 
-## なぜ既定が汎用LLMではなく Argos なのか
+## なぜ汎用LLMではなく Argos なのか
 
 「小さい・低計算コスト・単独動作」という条件では、翻訳専用のNMTモデルの方が、
-小さな汎用LLMより品質/計算コスト比に優れ、CPUでも快適に動きます。LLMエンジンは
-柔軟性が欲しいときのために用意してありますが、既定はコストを低く保ちます。
+小さな汎用LLMより品質/計算コスト比に優れ、CPUでも快適に動きます（小型LLMは
+数GBのメモリとモデルDLが必要になりがち）。そのため本アプリは Argos に絞っています。

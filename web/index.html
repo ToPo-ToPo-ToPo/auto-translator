@@ -130,6 +130,8 @@ async function init() {
     eng.appendChild(o);
   }
   eng.value = CONFIG.default_engine;
+  // With a single engine there's nothing to choose — hide the selector.
+  if (CONFIG.engines.length <= 1) eng.style.display = "none";
 
   setStatus("ready", "準備完了。入力してください。");
   $("input").addEventListener("input", schedule);

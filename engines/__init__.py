@@ -6,17 +6,15 @@ Each engine module exposes:
     is_available()  : bool  - whether deps/models are present right now
     translate(text, src, tgt, on_status=None) -> str
 
-Engines are imported lazily so that, e.g., an Argos-only user never needs
-mlx-lm or llama-cpp installed.
+Engines are imported lazily. Argos is the only built-in engine; add more by
+dropping a module here and listing it in _ENGINE_MODULES.
 """
 
 from importlib import import_module
 
-# (module name, attribute) in priority order. First available = default.
+# In priority order. First available = default.
 _ENGINE_MODULES = [
     "argos_engine",
-    "mlx_engine",
-    "llamacpp_engine",
 ]
 
 _cache = {}

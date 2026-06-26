@@ -1,20 +1,13 @@
 [project]
 name = "auto-translator"
 version = "1.0.0"
-description = "Offline-first local translation app: browser GUI + Argos Translate, with optional Gemma 4 small LLMs (MLX / llama.cpp)."
+description = "Offline-first local translation app: browser GUI + Argos Translate (CPU-only NMT)."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "argostranslate>=1.9",
     "langdetect>=1.0.9",
-    # MLX small-LLM engine (Gemma 4 E2B). Installed automatically on Apple
-    # Silicon macOS; skipped everywhere else.
-    "mlx-lm ; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
-
-[project.optional-dependencies]
-# llama.cpp small-LLM engine (point AUTO_TRANSLATE_GGUF at a Gemma 4 GGUF).
-llamacpp = ["llama-cpp-python"]
 
 [tool.uv]
 # This is a runnable app, not a distributable package — don't try to build it.

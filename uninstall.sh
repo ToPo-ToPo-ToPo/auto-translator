@@ -4,19 +4,17 @@
 # yourself afterwards if you want).
 #
 # Usage:
-#   ./uninstall.sh           # venv, logs, caches, Argos language models
+#   ./uninstall.sh                 # venv, logs, caches, Argos language models
 #   ./uninstall.sh --keep-models   # keep downloaded Argos language models
-#   ./uninstall.sh --all     # also remove downloaded Gemma 4 LLM models (HF cache)
-#   ./uninstall.sh --yes     # don't ask for confirmation
+#   ./uninstall.sh --yes           # don't ask for confirmation
 set -e
 cd "$(dirname "$0")"
 PROJECT="$(pwd)"
 
-KEEP_MODELS=0; REMOVE_LLM=0; ASSUME_YES=0
+KEEP_MODELS=0; ASSUME_YES=0
 for a in "$@"; do
   case "$a" in
     --keep-models) KEEP_MODELS=1 ;;
-    --all)         REMOVE_LLM=1 ;;
     --yes|-y)      ASSUME_YES=1 ;;
     *) echo "unknown option: $a"; exit 2 ;;
   esac
@@ -36,29 +34,13 @@ if [ "$KEEP_MODELS" -eq 0 ]; then
   add "$HOME/.config/argos-translate"
 fi
 
-# Optional: LLM weights this app may have downloaded into the *shared* HF cache.
-# IMPORTANT: only the exact model repos referenced by this app are removed —
-# NOT every gemma-4 in the cache (you may have many unrelated ones).
-APP_HF_MODELS=(
-  "models--Rapid42--gemma-4-E2B-it-MLX"            # MLX engine default
-  "models--Rapid42--gemma-4-E4B-it-MLX"            # documented "better quality" alt
-  "models--unsloth--gemma-4-E2B-it-UD-MLX-4bit"    # documented "smaller" alt
-)
-LLM_TARGETS=()
-if [ "$REMOVE_LLM" -eq 1 ]; then
-  HUB="$HOME/.cache/huggingface/hub"
-  for name in "${APP_HF_MODELS[@]}"; do
-    [ -d "$HUB/$name" ] && LLM_TARGETS+=("$HUB/$name")
-  done
-fi
-
-if [ "${#TARGETS[@]}" -eq 0 ] && [ "${#LLM_TARGETS[@]}" -eq 0 ]; then
+if [ "${#TARGETS[@]}" -eq 0 ]; then
   echo "Nothing to remove — already clean."
   exit 0
 fi
 
 echo "The following will be removed:"
-for t in "${TARGETS[@]}" "${LLM_TARGETS[@]}"; do
+for t in "${TARGETS[@]}"; do
   printf "  %-6s  %s\n" "$(du -sh "$t" 2>/dev/null | cut -f1)" "$t"
 done
 echo
@@ -72,7 +54,7 @@ fi
 PIDS="$(lsof -ti tcp:8765 2>/dev/null || true)"
 [ -n "$PIDS" ] && { echo "Stopping running app…"; kill $PIDS 2>/dev/null || true; }
 
-for t in "${TARGETS[@]}" "${LLM_TARGETS[@]}"; do
+for t in "${TARGETS[@]}"; do
   rm -rf "$t" && echo "removed: $t"
 done
 
