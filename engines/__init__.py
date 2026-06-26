@@ -12,9 +12,11 @@ dropping a module here and listing it in _ENGINE_MODULES.
 
 from importlib import import_module
 
-# In priority order. First available = default.
+# In priority order. First available = default (Argos stays the lightweight
+# default; llama.cpp is selectable in the UI for higher-quality LLM output).
 _ENGINE_MODULES = [
     "argos_engine",
+    "llamacpp_engine",
 ]
 
 _cache = {}

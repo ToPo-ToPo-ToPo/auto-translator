@@ -1,12 +1,15 @@
 [project]
 name = "auto-translator"
 version = "1.0.0"
-description = "Offline-first local translation app: browser GUI + Argos Translate (CPU-only NMT)."
+description = "Offline-first local translation app: browser GUI + Argos Translate (NMT) and an optional llama.cpp small-LLM engine (Gemma 4)."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "argostranslate>=1.9",
     "langdetect>=1.0.9",
+    # llama.cpp small-LLM engine (Gemma 4 GGUF). Portable wheels across platforms.
+    "llama-cpp-python>=0.3",
+    "huggingface-hub>=0.20",
 ]
 
 [tool.uv]

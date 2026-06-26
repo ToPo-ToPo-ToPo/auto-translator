@@ -6,9 +6,12 @@ A small, **standalone, offline** translation app — a local alternative to
 DeepL. Type into a browser UI and it translates instantly. No external API, no
 account, no internet required after the first model download.
 
-- **Engine: [Argos Translate](https://github.com/argosopentech/argos-translate)** —
+- **Default engine: [Argos Translate](https://github.com/argosopentech/argos-translate)** —
   purpose-built translation models, CPU-only, ~100–200 MB per language pair.
   Best quality-per-compute and fully offline.
+- **Optional small-LLM engine: llama.cpp (Gemma 4)** — switchable in the UI. One
+  GGUF runs the same on Apple Silicon (Metal), Intel, Linux and Windows. Default
+  model is Gemma 4 E2B (auto-downloaded on first use).
 - **GUI:** a local web page served by Python's standard library. Translates as
   you type (auto-detect source).
 
@@ -56,21 +59,45 @@ The `.app` is just a **launcher**; the real app is the cloned **project folder**
 > Note: launching the app never auto-moves it to /Applications — it stays where
 > you put it.
 
+## Small-LLM engine (llama.cpp, optional)
+
+Pick **"Gemma 4 E2B (llama.cpp)"** in the engine dropdown to switch to LLM
+translation. Argos stays the default, so you only pay for the LLM when you want
+it.
+
+- On **first selection** it auto-downloads the default model (Gemma 4 E2B Q4_0,
+  ~3.35 GB); offline afterwards. Memory use is roughly **~4 GB** (~5.5 GB for E4B).
+- **Swap the model** via env vars:
+
+```bash
+# use an existing local GGUF (highest priority, no download)
+export AUTO_TRANSLATE_GGUF=/path/to/model.gguf
+
+# or point at a different HF repo/file (e.g. E4B for higher quality, more RAM)
+export AUTO_TRANSLATE_GGUF_REPO=google/gemma-4-E4B-it-qat-q4_0-gguf
+export AUTO_TRANSLATE_GGUF_FILE=gemma-4-E4B_q4_0-it.gguf
+```
+
+GGUFs are stored under `~/.cache/huggingface`; delete them manually if unwanted.
+
 ## Configuration (env vars)
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `AUTO_TRANSLATE_HOST` | `127.0.0.1` | Bind host |
 | `AUTO_TRANSLATE_PORT` | `8765` | Port |
+| `AUTO_TRANSLATE_GGUF` | _(unset)_ | Local GGUF path for llama.cpp (highest priority) |
+| `AUTO_TRANSLATE_GGUF_REPO` | `google/gemma-4-E2B-it-qat-q4_0-gguf` | HF repo to auto-download |
+| `AUTO_TRANSLATE_GGUF_FILE` | `gemma-4-E2B_q4_0-it.gguf` | GGUF filename within the repo |
 
 ## How it fits together
 
 ```
 auto-translator.app   double-clickable macOS launcher (uv sync + uv run app.py)
-pyproject.toml        deps (argostranslate / langdetect), managed by uv
+pyproject.toml        deps (argostranslate / langdetect / llama-cpp-python), via uv
 app.py                stdlib HTTP server: /api/config, /api/translate, serves web/
 web/index.html        the UI (vanilla JS, debounced auto-translate)
-engines/              pluggable backends (currently argos only), lazily imported
+engines/              pluggable backends (argos / llamacpp), lazily imported
 languages.py          language list + code normalization
 ```
 
@@ -91,8 +118,10 @@ A script removes everything this app created (it never touches unrelated files):
 It lists each target with its size and asks before deleting. To finish, drag the
 app out of the Dock and delete the project folder.
 
-## Why Argos instead of a general LLM?
+## Why Argos is the default
 
-For "small, low compute, standalone," a dedicated NMT model beats a tiny general
-LLM on quality-per-FLOP and runs comfortably on CPU (small LLMs tend to need
-several GB of RAM and a large model download). So this app sticks with Argos.
+For "small, low compute, standalone," a dedicated NMT model (Argos) beats a tiny
+general LLM on quality-per-FLOP and runs instantly on CPU. LLMs are stronger on
+context and nuance, so the llama.cpp (Gemma 4) engine is there **when you want
+higher quality** — at the cost of several GB of RAM and a first-use download.
+Light Argos by default, LLM on demand.
