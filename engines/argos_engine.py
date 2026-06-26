@@ -22,6 +22,17 @@ def is_available():
         return False
 
 
+def unavailable_reason():
+    try:
+        import argostranslate.translate  # noqa: F401
+        return None
+    except Exception as e:
+        return (
+            "argostranslate が読み込めません。`uv sync` を実行してください。"
+            f"（詳細: {type(e).__name__}: {e}）"
+        )
+
+
 def _installed_pair(from_code, to_code):
     import argostranslate.package as pkg
     for p in pkg.get_installed_packages():

@@ -67,6 +67,20 @@
     cursor: pointer;
   }
   .copy:hover { color: var(--text); border-color: var(--accent); }
+  .notice {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 16px; font-size: 13px; line-height: 1.45;
+    border-bottom: 1px solid var(--border);
+  }
+  .notice[hidden] { display: none; }
+  .notice .msg { flex: 1; white-space: pre-wrap; word-break: break-word; }
+  .notice .x { cursor: pointer; opacity: .65; font-size: 12px; padding: 0 2px; }
+  .notice .x:hover { opacity: 1; }
+  .notice.info { background: var(--accent-dim); color: var(--text); }
+  .notice.err  { background: #3a1d1f; color: #ffd9d9; }
+  @media (prefers-color-scheme: light) {
+    .notice.err { background: #fde8e8; color: #8a1c1c; }
+  }
 </style>
 </head>
 <body>
@@ -78,6 +92,10 @@
     <button class="swap" id="swap" title="言語を入れ替え">⇄</button>
     <select id="tgt" title="翻訳先の言語"></select>
   </header>
+  <div id="notice" class="notice" hidden>
+    <span class="msg" id="noticeMsg"></span>
+    <span class="x" id="noticeX" title="閉じる">✕</span>
+  </div>
   <main>
     <section class="pane">
       <div class="pane-head"><span class="dot" id="dot"></span><span class="status" id="status">準備中…</span></div>
@@ -127,6 +145,7 @@ async function init() {
     o.value = e.name;
     o.textContent = e.available ? e.label : `${e.label} — 未導入`;
     o.disabled = !e.available;
+    if (!e.available && e.reason) o.title = e.reason;  // hover shows why
     eng.appendChild(o);
   }
   eng.value = CONFIG.default_engine;
@@ -134,13 +153,32 @@ async function init() {
   if (CONFIG.engines.length <= 1) eng.style.display = "none";
 
   setStatus("ready", "準備完了。入力してください。");
+
+  // Surface any engines that can't be used (e.g. llama.cpp not installed).
+  const down = CONFIG.engines.filter((e) => !e.available);
+  if (down.length) {
+    showNotice("info",
+      down.map((e) => `「${e.label}」は利用できません。\n${e.reason || ""}`).join("\n\n"));
+  }
+
   $("input").addEventListener("input", schedule);
   $("engine").addEventListener("change", () => translateNow(true));
   $("src").addEventListener("change", () => translateNow(true));
   $("tgt").addEventListener("change", () => translateNow(true));
   $("swap").addEventListener("click", swapLangs);
   $("copy").addEventListener("click", copyOut);
+  $("noticeX").addEventListener("click", clearNotice);
 }
+
+let noticeKind = null;
+function showNotice(kind, msg) {
+  noticeKind = kind;
+  const n = $("notice");
+  n.className = "notice " + (kind === "err" ? "err" : "info");
+  $("noticeMsg").textContent = msg;
+  n.hidden = false;
+}
+function clearNotice() { $("notice").hidden = true; noticeKind = null; }
 
 function setStatus(kind, msg) {
   const dot = $("dot");
@@ -195,9 +233,11 @@ async function translateNow(force) {
     if (seq !== reqSeq) return; // a newer request superseded this one
     if (data.detected) CONFIG.lastDetected = data.detected;
     if (data.error) {
-      setStatus("err", data.error);
+      setStatus("err", "エラーが発生しました");
+      showNotice("err", data.error);
       return;
     }
+    if (noticeKind === "err") clearNotice();  // a good result clears stale errors
     out.textContent = data.translation || "";
     out.classList.toggle("placeholder", !data.translation);
     if ($("src").value === "auto" && data.detected) {
@@ -209,7 +249,8 @@ async function translateNow(force) {
     setStatus("ready", (data.status && data.status.length) ? data.status[data.status.length-1] : "完了");
   } catch (e) {
     if (seq !== reqSeq) return;
-    setStatus("err", "通信エラー: " + e.message);
+    setStatus("err", "通信エラー");
+    showNotice("err", "サーバと通信できませんでした: " + e.message);
   }
 }
 

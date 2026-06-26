@@ -39,6 +39,19 @@ def is_available():
         return False
 
 
+def unavailable_reason():
+    """Human-readable reason this engine can't be used (or None if it can)."""
+    try:
+        import llama_cpp  # noqa: F401
+        return None
+    except Exception as e:
+        return (
+            "llama.cpp（llama-cpp-python）が読み込めません。"
+            "プロジェクトフォルダで `uv sync` を実行すると導入されます。"
+            f"（詳細: {type(e).__name__}: {e}）"
+        )
+
+
 def _model_path(on_status):
     """Return a local GGUF path, downloading the default model if needed."""
     global _resolved_path

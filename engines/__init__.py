@@ -29,23 +29,32 @@ def _load(mod_name):
 
 
 def list_engines():
-    """Return [{name, label, available}] for every known engine."""
+    """Return [{name, label, available, reason?}] for every known engine."""
     out = []
     for mod_name in _ENGINE_MODULES:
         try:
             mod = _load(mod_name)
-            out.append(
-                {
-                    "name": mod.NAME,
-                    "label": mod.LABEL,
-                    "available": bool(mod.is_available()),
-                }
-            )
+            avail = bool(mod.is_available())
+            entry = {"name": mod.NAME, "label": mod.LABEL, "available": avail}
+            if not avail:
+                entry["reason"] = _reason(mod) or "利用できません。"
+            out.append(entry)
         except Exception as e:  # a broken/optional engine shouldn't kill the list
             out.append(
-                {"name": mod_name, "label": mod_name, "available": False, "error": str(e)}
+                {"name": mod_name, "label": mod_name, "available": False,
+                 "reason": f"{type(e).__name__}: {e}"}
             )
     return out
+
+
+def _reason(mod):
+    fn = getattr(mod, "unavailable_reason", None)
+    if not fn:
+        return None
+    try:
+        return fn()
+    except Exception:
+        return None
 
 
 def get_engine(name):

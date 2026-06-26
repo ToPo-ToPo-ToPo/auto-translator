@@ -109,7 +109,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             engine = engines.get_engine(engine_name)
             if not engine.is_available():
-                raise RuntimeError(f"エンジン '{engine_name}' は利用できません。")
+                reason = getattr(engine, "unavailable_reason", lambda: None)()
+                raise RuntimeError(
+                    reason or f"エンジン '{engine_name}' は利用できません。"
+                )
             result = engine.translate(
                 text, src, tgt, on_status=statuses.append
             )
