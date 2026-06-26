@@ -13,6 +13,23 @@ account, no internet required after the first model download.
 - **GUI:** a local web page served by Python's standard library — nothing to
   install beyond the engine. Translates as you type (auto-detect source).
 
+## かんたん導入（日本語）
+
+[uv](https://docs.astral.sh/uv/) が必要です（未インストールなら
+`brew install uv`）。
+
+```bash
+git clone https://github.com/ToPo-ToPo-ToPo/auto-translator.git
+cd auto-translator
+./run.sh                 # 依存を準備して起動（ブラウザが自動で開きます）
+```
+
+- **アプリとして使う:** Finder で `auto-translator.app` をダブルクリック。
+  Dock やアプリケーションフォルダにドラッグしてもOK。終了は Dock アイコンを
+  右クリック →「終了」。
+- **小型LLMを使う:** `./run.sh --mlx`（Apple Silicon / Gemma 4 E2B）。
+- **アンインストール:** `./uninstall.sh`（下記「Uninstall」参照）。
+
 ## Quick start (macOS — click to launch)
 
 Double-click **`auto-translator.app`** in Finder. It starts the local server and
@@ -85,6 +102,23 @@ languages.py          language list + code normalization
 Adding an engine = drop a module in `engines/` exposing `NAME`, `LABEL`,
 `is_available()`, and `translate(text, src, tgt, on_status=None)`, then list it
 in `engines/__init__.py`.
+
+## Uninstall
+
+A script removes everything this app created (it never touches unrelated files):
+
+```bash
+./uninstall.sh                # venv, logs, caches, Argos language models
+./uninstall.sh --keep-models  # keep the downloaded Argos models
+./uninstall.sh --all          # also remove this app's Gemma 4 LLM downloads
+./uninstall.sh --yes          # skip the confirmation prompt
+```
+
+It lists each target with its size and asks before deleting. `--all` only
+removes the specific Gemma 4 repos this app downloads (`Rapid42/gemma-4-E2B-it-MLX`
+and the documented alternates) — never your other models in the shared
+Hugging Face cache. To finish, drag the app out of the Dock and delete the
+project folder.
 
 ## Why Argos instead of a general LLM by default?
 
