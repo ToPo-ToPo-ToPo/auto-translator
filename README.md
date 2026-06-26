@@ -15,49 +15,41 @@ account, no internet required after the first model download.
 
 ## かんたん導入（日本語）
 
-[uv](https://docs.astral.sh/uv/) が必要です（未インストールなら
+事前に [uv](https://docs.astral.sh/uv/) を入れておきます（未インストールなら
 `brew install uv`）。
 
 ```bash
 git clone https://github.com/ToPo-ToPo-ToPo/auto-translator.git
-cd auto-translator
-./run.sh                 # 依存を準備して起動（ブラウザが自動で開きます）
 ```
 
-- **アプリとして使う:** Finder で `auto-translator.app` をダブルクリック。
-  Dock やアプリケーションフォルダにドラッグしてもOK。終了は Dock アイコンを
+あとは clone したフォルダ内の **`auto-translator.app` をダブルクリックするだけ**。
+初回だけアプリが自動で準備（数秒〜十数秒）し、以降は即起動します。
+
+- Dock やアプリケーションフォルダにドラッグして置いてもOK。終了は Dock アイコンを
   右クリック →「終了」。
 - **小型LLM（MLX / Gemma 4 E2B）:** Apple Silicon の Mac では**自動で導入**され、
   UIのエンジン欄に出ます（モデル本体はそのエンジンを初めて選んだ時にDL）。
 - **アンインストール:** `./uninstall.sh`（下記「Uninstall」参照）。
 
-## Quick start (macOS — click to launch)
+## Install & launch (macOS)
 
-Double-click **`auto-translator.app`** in Finder. It starts the local server and
-opens the translator in your browser. Clicking it again just re-focuses the tab
-(it won't start a second copy).
+Install [uv](https://docs.astral.sh/uv/) once (`brew install uv`), then:
 
-- **Add to Dock / Applications:** drag `auto-translator.app` to the Dock or to
-  `/Applications`. It still finds the project even after being moved.
+```bash
+git clone https://github.com/ToPo-ToPo-ToPo/auto-translator.git
+```
+
+**Double-click `auto-translator.app`** in the cloned folder — that's the only
+step. It sets itself up on first launch (a few seconds), starts the local
+server, and opens the translator in your browser. Clicking it again just
+re-focuses the tab (it won't start a second copy).
+
+- **Add to Dock / Applications:** drag `auto-translator.app` there. It still
+  finds the project even after being moved.
 - **To quit:** right-click its Dock icon → **Quit** (this stops the server).
-- First launch may take a few seconds if it needs to build the virtual env;
-  details are logged to `app.log`.
+- Setup details are logged to `app.log`.
 
-## Quick start (terminal)
-
-Dependencies are managed with [uv](https://docs.astral.sh/uv/).
-
-```bash
-cd auto-translator
-./run.sh            # uv sync + launch, opens the browser
-```
-
-Or manually:
-
-```bash
-uv sync                       # create .venv from pyproject.toml / uv.lock
-uv run python app.py          # then open http://127.0.0.1:8765
-```
+> Not on macOS? Run it from a terminal instead: `uv run python app.py`.
 
 The first translation for a new language pair downloads its Argos model
 (progress shows in the status line). After that it's fully offline.
@@ -77,7 +69,7 @@ export AUTO_TRANSLATE_MLX_MODEL=Rapid42/gemma-4-E4B-it-MLX
 The llama.cpp engine is opt-in (it needs a GGUF file):
 
 ```bash
-uv sync --extra llamacpp     # or: ./run.sh --llamacpp
+uv sync --extra llamacpp
 export AUTO_TRANSLATE_GGUF=/path/to/gemma-4-E2B-it.gguf
 ```
 

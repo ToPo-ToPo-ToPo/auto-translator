@@ -38,7 +38,7 @@ find_uv() {
 }
 
 UV="$(find_uv)" || {
-  osascript -e 'display alert "auto-translator" message "uv が見つかりませんでした。Terminal で ./run.sh を実行するか、uv をインストールしてください。"'
+  osascript -e 'display alert "auto-translator" message "uv が見つかりませんでした。Terminal で「brew install uv」を実行してから、もう一度アプリを開いてください。"'
   exit 1
 }
 
