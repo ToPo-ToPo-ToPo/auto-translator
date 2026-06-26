@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Convenience launcher: uv creates/updates the venv, then runs the app.
-# Optional LLM engines: ./run.sh --mlx   or   ./run.sh --llamacpp
+# MLX (Gemma 4) installs automatically on Apple Silicon macOS.
+# For the llama.cpp engine instead: ./run.sh --llamacpp
 set -e
 cd "$(dirname "$0")"
 
@@ -8,7 +9,6 @@ EXTRAS=()
 ARGS=()
 for a in "$@"; do
   case "$a" in
-    --mlx) EXTRAS+=(--extra mlx) ;;
     --llamacpp) EXTRAS+=(--extra llamacpp) ;;
     *) ARGS+=("$a") ;;
   esac

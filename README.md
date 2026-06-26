@@ -27,7 +27,8 @@ cd auto-translator
 - **アプリとして使う:** Finder で `auto-translator.app` をダブルクリック。
   Dock やアプリケーションフォルダにドラッグしてもOK。終了は Dock アイコンを
   右クリック →「終了」。
-- **小型LLMを使う:** `./run.sh --mlx`（Apple Silicon / Gemma 4 E2B）。
+- **小型LLM（MLX / Gemma 4 E2B）:** Apple Silicon の Mac では**自動で導入**され、
+  UIのエンジン欄に出ます（モデル本体はそのエンジンを初めて選んだ時にDL）。
 - **アンインストール:** `./uninstall.sh`（下記「Uninstall」参照）。
 
 ## Quick start (macOS — click to launch)
@@ -61,18 +62,21 @@ uv run python app.py          # then open http://127.0.0.1:8765
 The first translation for a new language pair downloads its Argos model
 (progress shows in the status line). After that it's fully offline.
 
-## Using the small-LLM backends (optional)
+## Small-LLM backends
 
-These are off by default to keep things light. Each is a uv extra:
+**MLX (Gemma 4) is installed automatically on Apple Silicon macOS** — just pick
+it in the engine dropdown (the model weights download on first use). On other
+platforms it is skipped. To choose a different MLX model:
 
 ```bash
-# Apple Silicon (MLX) — default model is Gemma 4 E2B
-uv sync --extra mlx          # or: ./run.sh --mlx
-# optional: step up to E4B (better quality) or down to a 4-bit build (less RAM)
+# step up to E4B (better quality) or down to a 4-bit build (less RAM)
 export AUTO_TRANSLATE_MLX_MODEL=Rapid42/gemma-4-E4B-it-MLX
 # export AUTO_TRANSLATE_MLX_MODEL=unsloth/gemma-4-E2B-it-UD-MLX-4bit
+```
 
-# llama.cpp (small Gemma 4 GGUF)
+The llama.cpp engine is opt-in (it needs a GGUF file):
+
+```bash
 uv sync --extra llamacpp     # or: ./run.sh --llamacpp
 export AUTO_TRANSLATE_GGUF=/path/to/gemma-4-E2B-it.gguf
 ```
@@ -92,7 +96,7 @@ Restart the app; the engine dropdown will offer the newly available backends.
 
 ```
 auto-translator.app   double-clickable macOS launcher (uv sync + uv run app.py)
-pyproject.toml        deps + optional extras (mlx / llamacpp), managed by uv
+pyproject.toml        deps (auto MLX on Apple Silicon; llamacpp extra), via uv
 app.py                stdlib HTTP server: /api/config, /api/translate, serves web/
 web/index.html        the UI (vanilla JS, debounced auto-translate)
 engines/              pluggable backends (argos / mlx / llamacpp), lazily imported
