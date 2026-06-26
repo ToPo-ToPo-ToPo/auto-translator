@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
-# Convenience launcher: sets up a local venv on first run, then starts the app.
+# Convenience launcher: uv creates/updates the venv, then runs the app.
+# Optional LLM engines: ./run.sh --mlx   or   ./run.sh --llamacpp
 set -e
 cd "$(dirname "$0")"
 
-if [ ! -d ".venv" ]; then
-  echo "Creating virtual environment (.venv)…"
-  python3 -m venv .venv
-  ./.venv/bin/pip install --upgrade pip >/dev/null
-  ./.venv/bin/pip install -r requirements.txt
-fi
+EXTRAS=()
+ARGS=()
+for a in "$@"; do
+  case "$a" in
+    --mlx) EXTRAS+=(--extra mlx) ;;
+    --llamacpp) EXTRAS+=(--extra llamacpp) ;;
+    *) ARGS+=("$a") ;;
+  esac
+done
 
-exec ./.venv/bin/python app.py "$@"
+uv sync "${EXTRAS[@]}"
+exec uv run python app.py "${ARGS[@]}"

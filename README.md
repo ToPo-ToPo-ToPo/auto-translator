@@ -27,16 +27,18 @@ opens the translator in your browser. Clicking it again just re-focuses the tab
 
 ## Quick start (terminal)
 
+Dependencies are managed with [uv](https://docs.astral.sh/uv/).
+
 ```bash
 cd auto-translator
-./run.sh            # creates .venv, installs deps, launches, opens the browser
+./run.sh            # uv sync + launch, opens the browser
 ```
 
 Or manually:
 
 ```bash
-pip install -r requirements.txt
-python3 app.py      # then open http://127.0.0.1:8765
+uv sync                       # create .venv from pyproject.toml / uv.lock
+uv run python app.py          # then open http://127.0.0.1:8765
 ```
 
 The first translation for a new language pair downloads its Argos model
@@ -44,17 +46,17 @@ The first translation for a new language pair downloads its Argos model
 
 ## Using the small-LLM backends (optional)
 
-These are off by default to keep things light. Enable whichever you want:
+These are off by default to keep things light. Each is a uv extra:
 
 ```bash
 # Apple Silicon (MLX) — default model is Gemma 4 E2B
-pip install mlx-lm
+uv sync --extra mlx          # or: ./run.sh --mlx
 # optional: step up to E4B (better quality) or down to a 4-bit build (less RAM)
 export AUTO_TRANSLATE_MLX_MODEL=Rapid42/gemma-4-E4B-it-MLX
 # export AUTO_TRANSLATE_MLX_MODEL=unsloth/gemma-4-E2B-it-UD-MLX-4bit
 
 # llama.cpp (small Gemma 4 GGUF)
-pip install llama-cpp-python
+uv sync --extra llamacpp     # or: ./run.sh --llamacpp
 export AUTO_TRANSLATE_GGUF=/path/to/gemma-4-E2B-it.gguf
 ```
 
@@ -72,7 +74,8 @@ Restart the app; the engine dropdown will offer the newly available backends.
 ## How it fits together
 
 ```
-auto-translator.app   double-clickable macOS launcher (runs app.py via .venv)
+auto-translator.app   double-clickable macOS launcher (uv sync + uv run app.py)
+pyproject.toml        deps + optional extras (mlx / llamacpp), managed by uv
 app.py                stdlib HTTP server: /api/config, /api/translate, serves web/
 web/index.html        the UI (vanilla JS, debounced auto-translate)
 engines/              pluggable backends (argos / mlx / llamacpp), lazily imported
