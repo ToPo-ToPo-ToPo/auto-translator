@@ -24,13 +24,20 @@ def is_applicable():
 
 
 def _cached_snapshot(repo):
-    """Return the local snapshot path if `repo` is already fully in the HF cache
-    (no network), else None — so we never re-download a model we already have."""
+    """Return the local snapshot path only if `repo` is fully in the HF cache
+    *with its weights present* (no network), else None. A partial cache (e.g. an
+    interrupted download that fetched config but not the .safetensors) returns
+    None so the caller falls back to completing the download."""
+    import glob
     try:
         from huggingface_hub import snapshot_download
-        return snapshot_download(repo, local_files_only=True)
+        path = snapshot_download(repo, local_files_only=True)
     except Exception:
         return None
+    has_weights = glob.glob(os.path.join(path, "*.safetensors")) or glob.glob(
+        os.path.join(path, "**", "*.safetensors"), recursive=True
+    )
+    return path if has_weights else None
 
 
 class MlxModel:
