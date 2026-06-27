@@ -31,6 +31,13 @@ _llm = None
 _resolved_path = None
 
 
+def is_applicable():
+    # Optional engine: only show it in the UI when actually installed
+    # (uv sync --extra llamacpp). Otherwise it's hidden, not shown as broken.
+    import importlib.util
+    return importlib.util.find_spec("llama_cpp") is not None
+
+
 def is_available():
     # Cheap presence check — avoid importing llama_cpp at startup (slow).
     import importlib.util
