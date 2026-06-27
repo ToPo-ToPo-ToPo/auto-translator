@@ -82,7 +82,9 @@ def get_engine(name):
 
 
 def default_engine_name():
-    for e in list_engines():
+    listed = list_engines()
+    for e in listed:
         if e["available"]:
             return e["name"]
-    return _ENGINE_MODULES[0]
+    # Fall back to the first listed engine's NAME (not the module name).
+    return listed[0]["name"] if listed else "argos"

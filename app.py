@@ -126,8 +126,19 @@ class Handler(BaseHTTPRequestHandler):
             )
 
 
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        # A client closing the connection mid-response is normal (browser tab
+        # closed, request superseded) — don't dump a traceback for it.
+        if sys.exc_info()[0] in (ConnectionResetError, BrokenPipeError):
+            return
+        super().handle_error(request, client_address)
+
+
 def main():
-    server = ThreadingHTTPServer((HOST, PORT), Handler)
+    server = Server((HOST, PORT), Handler)
     url = f"http://{HOST}:{PORT}"
     avail = [e["name"] for e in engines.list_engines() if e["available"]]
     print(f"auto-translator running at {url}")

@@ -150,6 +150,11 @@ A script removes everything this app created (it never touches unrelated files):
 It lists each target with its size and asks before deleting. To finish, drag the
 app out of the Dock and delete the project folder.
 
+## License
+
+The app code is [MIT](LICENSE). Translation models (Argos / Gemma, etc.) are
+governed by their own licenses (Gemma derivatives follow the Gemma Terms).
+
 ## Why Argos is the default
 
 For "small, low compute, standalone," a dedicated NMT model (Argos) beats a tiny
