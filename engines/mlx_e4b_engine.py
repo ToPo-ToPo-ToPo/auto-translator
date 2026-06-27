@@ -5,7 +5,7 @@ Build the local model once:  uv run python tools/build_mlx_model.py e4b
 Override the location/model:  AUTO_TRANSLATE_MLX_E4B_MODEL (local path or HF repo id)
 """
 
-from engines._mlx_common import MlxModel
+from engines._mlx_common import MlxModel, is_applicable  # noqa: F401
 
 _engine = MlxModel(
     name="mlx-e4b",

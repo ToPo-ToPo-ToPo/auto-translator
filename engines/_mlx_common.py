@@ -6,11 +6,19 @@ and load must use the same mlx-vlm version, hence the pin in pyproject.
 """
 
 import os
+import platform
+import sys
 import threading
 
 from languages import NAMES
 
 CACHE_DIR = os.path.expanduser("~/.cache/auto-translator/mlx")
+
+
+def is_applicable():
+    """MLX (mlx-vlm) only runs on Apple Silicon. On any other OS/arch the MLX
+    engines are hidden entirely (the dependency isn't installed there either)."""
+    return sys.platform == "darwin" and platform.machine() == "arm64"
 
 
 class MlxModel:
@@ -38,6 +46,8 @@ class MlxModel:
         return self._model_ready()
 
     def unavailable_reason(self):
+        if not is_applicable():
+            return "MLX は Apple Silicon (macOS) 専用です。このOSでは利用できません。"
         try:
             import mlx_vlm  # noqa: F401
         except Exception as e:

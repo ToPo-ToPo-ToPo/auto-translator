@@ -101,6 +101,10 @@ menu. Until built, the UI shows a clear "not built yet" reason with the command
 to run. Conversion and loading must use the **same mlx-vlm (0.6.3)**, so the app
 pins that version.
 
+> **OS auto-detection:** MLX is Apple-Silicon only. **On other OSes / Intel Macs,
+> mlx-vlm is not installed and the MLX engines don't appear** — only the backends
+> usable on that platform are offered. `argos` and `llamacpp` work everywhere.
+
 - Models live under `~/.cache/auto-translator/mlx/` (removed by uninstall).
 - `AUTO_TRANSLATE_MLX_MODEL` (E2B) / `AUTO_TRANSLATE_MLX_E4B_MODEL` (E4B) override
   the local path (or an HF repo id).

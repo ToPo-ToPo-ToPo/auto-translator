@@ -30,12 +30,26 @@ def _load(mod_name):
     return _cache[mod_name]
 
 
+def _applicable(mod):
+    """Whether an engine applies to the current OS/arch (default: yes)."""
+    fn = getattr(mod, "is_applicable", None)
+    if not fn:
+        return True
+    try:
+        return bool(fn())
+    except Exception:
+        return True
+
+
 def list_engines():
-    """Return [{name, label, available, reason?}] for every known engine."""
+    """Return [{name, label, available, reason?}] for engines that apply to this
+    OS. Platform-specific engines (e.g. MLX on non-Apple-Silicon) are omitted."""
     out = []
     for mod_name in _ENGINE_MODULES:
         try:
             mod = _load(mod_name)
+            if not _applicable(mod):
+                continue
             avail = bool(mod.is_available())
             entry = {"name": mod.NAME, "label": mod.LABEL, "available": avail}
             if not avail:

@@ -100,6 +100,10 @@ uv run python tools/build_mlx_model.py all   # 両方
 現れます。未作成のうちは UI 上で「未作成」と理由（実行すべきコマンド）が表示されます。
 変換と読み込みは同じ **mlx-vlm 0.6.3** で行う必要があるため、本アプリはこの版に固定。
 
+> **OS自動判定:** MLX は Apple Silicon 専用です。**他のOS / Intel Mac では
+> mlx-vlm 自体が導入されず、エンジン一覧にも表示されません**（その環境で使える
+> バックエンドだけが自動で提示されます）。どのOSでも `argos` と `llamacpp` は利用可。
+
 - モデルは `~/.cache/auto-translator/mlx/` に保存（アンインストールで削除されます）。
 - `AUTO_TRANSLATE_MLX_MODEL`（E2B）/ `AUTO_TRANSLATE_MLX_E4B_MODEL`（E4B）で
   ローカルパスや別モデルに差し替え可能。
