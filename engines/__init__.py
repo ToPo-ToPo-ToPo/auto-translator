@@ -18,6 +18,7 @@ _ENGINE_MODULES = [
     "argos_engine",
     "llamacpp_engine",
     "mlx_engine",
+    "mlx_e4b_engine",
 ]
 
 _cache = {}

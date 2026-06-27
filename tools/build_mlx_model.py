@@ -1,43 +1,57 @@
 #!/usr/bin/env python3
-"""Build the local MLX model used by the MLX engine (Apple Silicon only).
+"""Build a local MLX model used by the MLX engines (Apple Silicon only).
 
-Converts the official Gemma 4 E2B QAT weights to MLX 4-bit with mlx-vlm 0.6.3
-(the same version the app loads with — convert/load must match) and stores it
-where the MLX engine looks for it. The model is kept local; nothing is uploaded.
+Converts the official Gemma 4 QAT weights to MLX 4-bit with mlx-vlm 0.6.3 (the
+same version the app loads with — convert/load must match) and stores it where
+the MLX engine looks for it. Models are kept local; nothing is uploaded.
 
-    uv run python tools/build_mlx_model.py
+    uv run python tools/build_mlx_model.py e2b   # default, ~9.5 GB -> ~3.3 GB
+    uv run python tools/build_mlx_model.py e4b   # higher quality, ~16 GB -> ~5 GB
+    uv run python tools/build_mlx_model.py all
 
-~9.5 GB is downloaded once, producing a ~3.3 GB model. Override the source or
-destination with AUTO_TRANSLATE_MLX_SRC / AUTO_TRANSLATE_MLX_MODEL.
+Override the source/destination with AUTO_TRANSLATE_MLX_SRC / the engine's model
+env var.
 """
 
 import os
 import sys
 
-# Resolve the destination from the engine so both stay in sync.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from engines.mlx_engine import DEFAULT_MODEL  # noqa: E402
+from engines.mlx_engine import DEFAULT_MODEL as E2B_OUT       # noqa: E402
+from engines.mlx_e4b_engine import DEFAULT_MODEL as E4B_OUT   # noqa: E402
 
-SRC = os.environ.get(
-    "AUTO_TRANSLATE_MLX_SRC", "google/gemma-4-E2B-it-qat-q4_0-unquantized"
-)
-OUT = os.environ.get("AUTO_TRANSLATE_MLX_MODEL", DEFAULT_MODEL)
+VARIANTS = {
+    "e2b": ("google/gemma-4-E2B-it-qat-q4_0-unquantized", E2B_OUT, "~9.5 GB"),
+    "e4b": ("google/gemma-4-E4B-it-qat-q4_0-unquantized", E4B_OUT, "~16 GB"),
+}
+
+
+def build(src, out, dl):
+    if os.path.isdir(out) and os.path.exists(os.path.join(out, "config.json")):
+        print(f"Already built: {out}")
+        return
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    from mlx_vlm.convert import convert
+
+    print(f"Converting {src}\n        -> {out}  (MLX 4-bit, group_size=64)")
+    print(f"Downloading {dl} on first run; this takes a few minutes…")
+    convert(
+        hf_path=src, mlx_path=out, quantize=True, q_bits=4, q_group_size=64,
+        dtype="bfloat16", trust_remote_code=True,
+    )
+    print(f"Done: {out}")
 
 
 def main():
-    if os.path.isdir(OUT) and os.path.exists(os.path.join(OUT, "config.json")):
-        print(f"Already built: {OUT}")
-        return
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    from mlx_vlm.convert import convert
-
-    print(f"Converting {SRC}\n        -> {OUT}  (MLX 4-bit, group_size=64)")
-    print("Downloading ~9.5 GB on first run; this takes a few minutes…")
-    convert(
-        hf_path=SRC, mlx_path=OUT, quantize=True, q_bits=4, q_group_size=64,
-        dtype="bfloat16", trust_remote_code=True,
-    )
-    print("Done. Launch the app and pick 'Gemma 4 E2B (MLX)' in the engine menu.")
+    which = (sys.argv[1] if len(sys.argv) > 1 else "e2b").lower()
+    targets = list(VARIANTS) if which == "all" else [which]
+    if any(t not in VARIANTS for t in targets):
+        sys.exit("usage: build_mlx_model.py [e2b|e4b|all]")
+    src_override = os.environ.get("AUTO_TRANSLATE_MLX_SRC")
+    for t in targets:
+        src, out, dl = VARIANTS[t]
+        build(src_override or src, out, dl)
+    print("Done. Launch the app and pick the MLX engine in the menu.")
 
 
 if __name__ == "__main__":
