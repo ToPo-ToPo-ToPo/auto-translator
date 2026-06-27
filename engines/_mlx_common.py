@@ -39,9 +39,9 @@ class MlxModel:
         return "/" in self.MODEL and not self.MODEL.startswith(("/", "~", "."))
 
     def is_available(self):
-        try:
-            import mlx_vlm  # noqa: F401
-        except Exception:
+        # Cheap presence check — avoid importing mlx_vlm at startup (slow).
+        import importlib.util
+        if importlib.util.find_spec("mlx_vlm") is None:
             return False
         return self._model_ready()
 

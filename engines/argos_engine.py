@@ -15,11 +15,10 @@ _index_updated = False  # only hit the network for the package index once
 
 
 def is_available():
-    try:
-        import argostranslate.translate  # noqa: F401
-        return True
-    except Exception:
-        return False
+    # Cheap presence check — do NOT import argostranslate here (it pulls torch
+    # /stanza, ~tens of seconds), which would make server startup slow.
+    import importlib.util
+    return importlib.util.find_spec("argostranslate") is not None
 
 
 def unavailable_reason():

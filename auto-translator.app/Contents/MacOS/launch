@@ -46,8 +46,12 @@ UV="$(find_uv)" || {
 # matching Python on its own if needed.
 "$UV" sync >>"$LOG" 2>&1
 
-# Open the browser shortly after the server comes up.
-( sleep 1; open "$URL" ) &
+# Open the browser only once the server actually responds (startup can take a
+# little while on a cold run) — opening too early shows a "can't connect" page.
+( for _ in $(seq 1 120); do
+    curl -s -o /dev/null --max-time 1 "$URL/api/config" && { open "$URL"; break; }
+    sleep 1
+  done ) &
 
 # Run the server in the foreground so this process == the app's lifetime.
 exec "$UV" run python app.py --no-browser >>"$LOG" 2>&1

@@ -32,11 +32,9 @@ _resolved_path = None
 
 
 def is_available():
-    try:
-        import llama_cpp  # noqa: F401
-        return True
-    except Exception:
-        return False
+    # Cheap presence check — avoid importing llama_cpp at startup (slow).
+    import importlib.util
+    return importlib.util.find_spec("llama_cpp") is not None
 
 
 def unavailable_reason():
