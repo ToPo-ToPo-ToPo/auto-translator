@@ -17,8 +17,9 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from engines.mlx_engine import DEFAULT_MODEL as E2B_OUT       # noqa: E402
-from engines.mlx_e4b_engine import DEFAULT_MODEL as E4B_OUT   # noqa: E402
+# Build into the local cache path the MLX engines prefer over the HF fallback.
+from engines.mlx_engine import LOCAL_PATH as E2B_OUT       # noqa: E402
+from engines.mlx_e4b_engine import LOCAL_PATH as E4B_OUT   # noqa: E402
 
 VARIANTS = {
     "e2b": ("google/gemma-4-E2B-it-qat-q4_0-unquantized", E2B_OUT, "~9.5 GB"),

@@ -44,8 +44,9 @@ def unavailable_reason():
         return None
     except Exception as e:
         return (
-            "llama.cpp（llama-cpp-python）が読み込めません。"
-            "プロジェクトフォルダで `uv sync` を実行すると導入されます。"
+            "llama.cpp（llama-cpp-python）は既定では導入されません（任意エンジン）。"
+            "使う場合はプロジェクトフォルダで `uv sync --extra llamacpp` を実行してください。"
+            "macOS では MLX エンジンの利用を推奨します。"
             f"（詳細: {type(e).__name__}: {e}）"
         )
 

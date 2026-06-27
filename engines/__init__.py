@@ -12,13 +12,14 @@ dropping a module here and listing it in _ENGINE_MODULES.
 
 from importlib import import_module
 
-# In priority order. First available = default (Argos stays the lightweight
-# default; llama.cpp is selectable in the UI for higher-quality LLM output).
+# In priority order. First available = default. On Apple Silicon, MLX Gemma 4
+# E2B is the default (fast, high quality); on other platforms it's filtered out
+# (is_applicable) so Argos becomes the default there.
 _ENGINE_MODULES = [
-    "argos_engine",
-    "llamacpp_engine",
-    "mlx_engine",
-    "mlx_e4b_engine",
+    "mlx_engine",       # Gemma 4 E2B (MLX) — default on Apple Silicon
+    "argos_engine",     # default off Apple Silicon
+    "mlx_e4b_engine",   # Gemma 4 E4B (MLX)
+    "llamacpp_engine",  # optional (uv sync --extra llamacpp)
 ]
 
 _cache = {}

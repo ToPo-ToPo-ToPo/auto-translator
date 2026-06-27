@@ -7,13 +7,17 @@ requires-python = ">=3.10"
 dependencies = [
     "argostranslate>=1.9",
     "langdetect>=1.0.9",
-    # llama.cpp small-LLM engine (Gemma 4 GGUF). Portable wheels across platforms.
-    "llama-cpp-python>=0.3",
     "huggingface-hub>=0.20",
-    # MLX small-LLM engine (Apple Silicon). Pinned to the version the model was
-    # converted with — convert/load must match. Installed only on darwin/arm64.
+    # MLX small-LLM engine (Apple Silicon). Default LLM on macOS. Pinned to the
+    # version the models were converted with — convert/load must match.
     "mlx-vlm==0.6.3 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
+
+[project.optional-dependencies]
+# llama.cpp engine (Gemma 4 GGUF), opt-in: uv sync --extra llamacpp
+# Off by default — its prebuilt wheel can mismatch the CPU arch (e.g. x86_64 on
+# Apple Silicon). On macOS the MLX engine is the recommended LLM instead.
+llamacpp = ["llama-cpp-python>=0.3"]
 
 [tool.uv]
 # This is a runnable app, not a distributable package — don't try to build it.

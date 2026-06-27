@@ -11,13 +11,14 @@ _engine = MlxModel(
     name="mlx-e4b",
     label="Gemma 4 E4B (MLX)",
     subdir="gemma-4-E4B-it-qat-mlx-4bit",
+    hf_repo="ToPo-ToPo/gemma-4-E4B-it-qat-mlx-4bit",
     env_var="AUTO_TRANSLATE_MLX_E4B_MODEL",
-    build_arg="e4b",
 )
 
 NAME = _engine.NAME
 LABEL = _engine.LABEL
-DEFAULT_MODEL = _engine.DEFAULT_MODEL
+LOCAL_PATH = _engine.local_path
+HF_REPO = _engine.hf_repo
 is_available = _engine.is_available
 unavailable_reason = _engine.unavailable_reason
 translate = _engine.translate

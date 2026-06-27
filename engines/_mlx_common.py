@@ -1,8 +1,10 @@
 """Shared implementation for the MLX engines (Gemma 4 E2B / E4B).
 
-Each MLX engine module creates one MlxModel and re-exports its methods. Models
-are self-converted with mlx-vlm 0.6.3 and kept local (not published); convert
-and load must use the same mlx-vlm version, hence the pin in pyproject.
+Each MLX engine module creates one MlxModel and re-exports its methods. The
+model is resolved as: AUTO_TRANSLATE_MLX_*_MODEL env override → a locally-built
+copy under ~/.cache/auto-translator/mlx → otherwise the published HF repo (auto-
+downloaded on first use). Convert and load must use the same mlx-vlm version,
+hence the pin in pyproject.
 """
 
 import os
@@ -22,21 +24,31 @@ def is_applicable():
 
 
 class MlxModel:
-    def __init__(self, name, label, subdir, env_var, build_arg):
+    def __init__(self, name, label, subdir, hf_repo, env_var):
         self.NAME = name
         self.LABEL = label
-        self.DEFAULT_MODEL = os.path.join(CACHE_DIR, subdir)
-        self.MODEL = os.environ.get(env_var, self.DEFAULT_MODEL)
-        self.build_arg = build_arg          # e.g. "e2b" — shown in the build hint
+        self.local_path = os.path.join(CACHE_DIR, subdir)   # locally-built copy
+        self.hf_repo = hf_repo                              # published fallback
+        self.env_var = env_var
         self._lock = threading.Lock()
         self._loaded = None                 # (model, processor)
         self._config = None
 
+    def resolve(self):
+        """env override → local build (if present) → published HF repo."""
+        env = os.environ.get(self.env_var)
+        if env:
+            return env
+        if os.path.isdir(self.local_path):
+            return self.local_path
+        return self.hf_repo                 # mlx-vlm downloads this on first use
+
     def _model_ready(self):
-        if os.path.isdir(os.path.expanduser(self.MODEL)):
+        m = self.resolve()
+        if os.path.isdir(os.path.expanduser(m)):
             return True
-        # An HF repo id (org/name, not a filesystem path) is assumed downloadable.
-        return "/" in self.MODEL and not self.MODEL.startswith(("/", "~", "."))
+        # An HF repo id (org/name, not a filesystem path) is downloadable.
+        return "/" in m and not m.startswith(("/", "~", "."))
 
     def is_available(self):
         # Cheap presence check — avoid importing mlx_vlm at startup (slow).
@@ -48,29 +60,26 @@ class MlxModel:
     def unavailable_reason(self):
         if not is_applicable():
             return "MLX は Apple Silicon (macOS) 専用です。このOSでは利用できません。"
-        try:
-            import mlx_vlm  # noqa: F401
-        except Exception as e:
+        import importlib.util
+        if importlib.util.find_spec("mlx_vlm") is None:
             return (
                 "MLX（mlx-vlm）が読み込めません。Apple Silicon の Mac で `uv sync` を"
-                f"実行すると導入されます。（詳細: {type(e).__name__}: {e}）"
+                "実行すると導入されます。"
             )
         if not self._model_ready():
-            return (
-                "MLXモデルがまだ作成されていません。プロジェクトフォルダで "
-                f"`uv run python tools/build_mlx_model.py {self.build_arg}` を実行すると、"
-                f"公式重みから変換して用意します。場所: {self.MODEL}"
-            )
+            return f"MLXモデルを解決できません: {self.resolve()}"
         return None
 
     def _ensure(self, on_status):
         if self._loaded is None:
             from mlx_vlm import load
             from mlx_vlm.utils import load_config
+            m = self.resolve()
             if on_status:
-                on_status(f"MLXモデルを読み込み中 ({os.path.basename(self.MODEL)})…")
-            self._loaded = load(self.MODEL)
-            self._config = load_config(self.MODEL)
+                hint = "（初回はHFからDLします）" if not os.path.isdir(m) else ""
+                on_status(f"MLXモデルを準備中 ({m})…{hint}")
+            self._loaded = load(m)
+            self._config = load_config(m)
         return self._loaded, self._config
 
     def translate(self, text, src, tgt, on_status=None):
