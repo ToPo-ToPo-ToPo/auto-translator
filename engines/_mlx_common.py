@@ -23,6 +23,51 @@ def is_applicable():
     return sys.platform == "darwin" and platform.machine() == "arm64"
 
 
+def _download_with_progress(repo, on_status):
+    """Download `repo` into the HF cache, reporting % / GB progress via on_status
+    (which the app routes to the log panel). Returns the local snapshot path."""
+    from huggingface_hub import snapshot_download
+    import time as _time
+
+    state = {"t": 0.0}
+
+    base = None
+    try:
+        from tqdm.auto import tqdm as base
+    except Exception:
+        base = None
+
+    if base is None:                      # no tqdm available — plain download
+        if on_status:
+            on_status(f"MLXモデルをダウンロード中: {repo}")
+        return snapshot_download(repo)
+
+    class _LogTqdm(base):
+        def update(self, n=1):
+            r = super().update(n)
+            try:
+                total = self.total or 0
+                if total > 5_000_000 and on_status:   # only big files (weights)
+                    now = _time.time()
+                    done = self.n >= total
+                    if now - state["t"] > 1.0 or done:
+                        state["t"] = now
+                        on_status(
+                            f"ダウンロード中 {self.n / total * 100:4.1f}%  "
+                            f"{self.n / 1e9:.2f} / {total / 1e9:.2f} GB"
+                        )
+            except Exception:
+                pass
+            return r
+
+    if on_status:
+        on_status(f"MLXモデルをダウンロード開始: {repo}")
+    path = snapshot_download(repo, tqdm_class=_LogTqdm)
+    if on_status:
+        on_status("ダウンロード完了。読み込み中…")
+    return path
+
+
 def _cached_snapshot(repo):
     """Return the local snapshot path only if `repo` is fully in the HF cache
     *with its weights present* (no network), else None. A partial cache (e.g. an
@@ -100,9 +145,12 @@ class MlxModel:
             from mlx_vlm import load
             from mlx_vlm.utils import load_config
             m = self.resolve(prefer_cache=True)   # use cached snapshot if present
-            if on_status:
-                hint = "（初回はHFからDLします）" if not os.path.isdir(m) else "（キャッシュから）"
-                on_status(f"MLXモデルを準備中 ({m})…{hint}")
+            if os.path.isdir(os.path.expanduser(m)):
+                if on_status:
+                    on_status(f"MLXモデルを準備中 ({m})…（キャッシュから）")
+            else:
+                # Not local/cached — download ourselves so progress is logged.
+                m = _download_with_progress(m, on_status)
             self._loaded = load(m)
             self._config = load_config(m)
         return self._loaded, self._config
