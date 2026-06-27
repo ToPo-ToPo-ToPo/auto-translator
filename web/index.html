@@ -81,6 +81,27 @@
   @media (prefers-color-scheme: light) {
     .notice.err { background: #fde8e8; color: #8a1c1c; }
   }
+  .logpanel { border-top: 1px solid var(--border); font-size: 12px; }
+  .logpanel > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    display: flex; align-items: center; gap: 10px; padding: 8px 16px;
+    color: var(--muted);
+  }
+  .logpanel > summary::-webkit-details-marker { display: none; }
+  .logpanel > summary::before { content: "▸"; font-size: 11px; }
+  .logpanel[open] > summary::before { content: "▾"; }
+  .logpanel .logbtn {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: 2px 9px; font-size: 12px; cursor: pointer;
+  }
+  .logpanel .logbtn:hover { color: var(--text); border-color: var(--accent); }
+  .logpanel .right { margin-left: auto; display: flex; gap: 6px; }
+  #logBody {
+    margin: 0; padding: 10px 16px; max-height: 34vh; overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px;
+    line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+    background: rgba(127,127,127,.06); color: var(--text);
+  }
 </style>
 </head>
 <body>
@@ -109,6 +130,16 @@
       <div class="output placeholder" id="output">翻訳結果</div>
     </section>
   </main>
+  <details class="logpanel" id="logpanel">
+    <summary>
+      🐞 ログ
+      <span class="right">
+        <button class="logbtn" id="logCopy" title="ログをコピー">コピー</button>
+        <button class="logbtn" id="logRefresh" title="再読み込み">更新</button>
+      </span>
+    </summary>
+    <pre id="logBody">（ログはここに表示されます）</pre>
+  </details>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -168,6 +199,31 @@ async function init() {
   $("swap").addEventListener("click", swapLangs);
   $("copy").addEventListener("click", copyOut);
   $("noticeX").addEventListener("click", clearNotice);
+
+  // Log panel: refresh while open, copy for debugging.
+  $("logpanel").addEventListener("toggle", (e) => {
+    if (e.target.open) { fetchLogs(); logTimer = setInterval(fetchLogs, 2000); }
+    else { clearInterval(logTimer); logTimer = null; }
+  });
+  $("logRefresh").addEventListener("click", fetchLogs);
+  $("logCopy").addEventListener("click", copyLogs);
+}
+
+let logTimer = null;
+async function fetchLogs() {
+  try {
+    const data = await (await fetch("/api/logs")).json();
+    const body = $("logBody");
+    const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 30;
+    body.textContent = (data.lines || []).join("\n") || "（ログはまだありません）";
+    if (atBottom) body.scrollTop = body.scrollHeight;
+  } catch (e) { /* server may be busy/starting */ }
+}
+function copyLogs() {
+  navigator.clipboard.writeText($("logBody").textContent || "").then(() => {
+    const b = $("logCopy"); b.textContent = "コピーしました";
+    setTimeout(() => (b.textContent = "コピー"), 1200);
+  });
 }
 
 let noticeKind = null;

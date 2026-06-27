@@ -8,10 +8,13 @@ it translates instantly. No external services.
 Run:   python3 app.py        then open http://127.0.0.1:8765
 """
 
+import collections
+import datetime
 import json
 import os
 import sys
 import threading
+import traceback
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -21,6 +24,41 @@ from languages import LANGUAGES, normalize_code
 HOST = os.environ.get("AUTO_TRANSLATE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("AUTO_TRANSLATE_PORT", "8765"))
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+
+# ---- In-memory log buffer (shown in the UI, copyable for debugging) ---------
+LOG_BUFFER = collections.deque(maxlen=2000)
+
+
+def log(msg):
+    """Record an app-level event (timestamped) and echo to the console."""
+    ts = datetime.datetime.now().strftime("%H:%M:%S")
+    line = f"{ts}  {msg}"
+    LOG_BUFFER.append(line)
+    sys.__stdout__.write(line + "\n")
+    sys.__stdout__.flush()
+
+
+class _Tee:
+    """Wrap stdout/stderr so library output (warnings, tracebacks, download
+    progress) is also captured into LOG_BUFFER for the UI log panel."""
+
+    def __init__(self, orig):
+        self._orig = orig
+        self._buf = ""
+
+    def write(self, s):
+        self._orig.write(s)
+        self._buf += s.replace("\r", "\n")
+        *lines, self._buf = self._buf.split("\n")
+        for ln in lines:
+            if ln.strip():
+                LOG_BUFFER.append(ln)
+
+    def flush(self):
+        self._orig.flush()
+
+    def isatty(self):
+        return False
 
 
 def detect_language(text):
@@ -73,6 +111,8 @@ class Handler(BaseHTTPRequestHandler):
                     "default_engine": engines.default_engine_name(),
                 }
             )
+        elif self.path == "/api/logs":
+            self._send_json({"lines": list(LOG_BUFFER)})
         else:
             self.send_error(404)
 
@@ -106,6 +146,12 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         statuses = []
+
+        def on_status(s):
+            statuses.append(s)
+            log(f"  … {s}")
+
+        log(f"translate engine={engine_name} {src}->{tgt} ({len(text)} chars)")
         try:
             engine = engines.get_engine(engine_name)
             if not engine.is_available():
@@ -113,13 +159,16 @@ class Handler(BaseHTTPRequestHandler):
                 raise RuntimeError(
                     reason or f"エンジン '{engine_name}' は利用できません。"
                 )
-            result = engine.translate(
-                text, src, tgt, on_status=statuses.append
-            )
+            result = engine.translate(text, src, tgt, on_status=on_status)
+            log(f"  ✓ ok ({len(result)} chars)")
             self._send_json(
                 {"translation": result, "detected": detected or src, "status": statuses}
             )
         except Exception as e:
+            log(f"  ✗ ERROR [{engine_name}]: {type(e).__name__}: {e}")
+            tb = traceback.format_exc()
+            if tb and "NoneType: None" not in tb:
+                log(tb)
             self._send_json(
                 {"error": str(e), "detected": detected or src, "status": statuses},
                 status=200,
@@ -138,12 +187,17 @@ class Server(ThreadingHTTPServer):
 
 
 def main():
+    # Capture library output (warnings/tracebacks/download progress) for the UI.
+    sys.stdout = _Tee(sys.__stdout__)
+    sys.stderr = _Tee(sys.__stderr__)
+
     server = Server((HOST, PORT), Handler)
     url = f"http://{HOST}:{PORT}"
-    avail = [e["name"] for e in engines.list_engines() if e["available"]]
-    print(f"auto-translator running at {url}")
-    print(f"  available engines : {', '.join(avail) or '(none — run: pip install argostranslate)'}")
-    print(f"  default engine    : {engines.default_engine_name()}")
+    log(f"auto-translator starting at {url}")
+    for e in engines.list_engines():
+        log(f"  engine {e['name']}: {'available' if e['available'] else 'unavailable'}"
+            + (f" — {e['reason']}" if e.get('reason') else ""))
+    log(f"  default engine: {engines.default_engine_name()}")
     print("  Ctrl-C to stop.")
     no_browser = "--no-browser" in sys.argv or os.environ.get("AUTO_TRANSLATE_NO_BROWSER")
     if not no_browser:
