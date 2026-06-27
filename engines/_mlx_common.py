@@ -23,6 +23,16 @@ def is_applicable():
     return sys.platform == "darwin" and platform.machine() == "arm64"
 
 
+def _cached_snapshot(repo):
+    """Return the local snapshot path if `repo` is already fully in the HF cache
+    (no network), else None — so we never re-download a model we already have."""
+    try:
+        from huggingface_hub import snapshot_download
+        return snapshot_download(repo, local_files_only=True)
+    except Exception:
+        return None
+
+
 class MlxModel:
     def __init__(self, name, label, subdir, hf_repo, env_var):
         self.NAME = name
@@ -34,13 +44,21 @@ class MlxModel:
         self._loaded = None                 # (model, processor)
         self._config = None
 
-    def resolve(self):
-        """env override → local build (if present) → published HF repo."""
+    def resolve(self, prefer_cache=False):
+        """env override → local build → (cached HF snapshot) → published HF repo.
+
+        With prefer_cache=True, if the HF repo is already fully cached, return its
+        local snapshot path so loading is fully offline (no network/etag checks,
+        no accidental re-download)."""
         env = os.environ.get(self.env_var)
         if env:
             return env
         if os.path.isdir(self.local_path):
             return self.local_path
+        if prefer_cache:
+            cached = _cached_snapshot(self.hf_repo)
+            if cached:
+                return cached
         return self.hf_repo                 # mlx-vlm downloads this on first use
 
     def _model_ready(self):
@@ -74,9 +92,9 @@ class MlxModel:
         if self._loaded is None:
             from mlx_vlm import load
             from mlx_vlm.utils import load_config
-            m = self.resolve()
+            m = self.resolve(prefer_cache=True)   # use cached snapshot if present
             if on_status:
-                hint = "（初回はHFからDLします）" if not os.path.isdir(m) else ""
+                hint = "（初回はHFからDLします）" if not os.path.isdir(m) else "（キャッシュから）"
                 on_status(f"MLXモデルを準備中 ({m})…{hint}")
             self._loaded = load(m)
             self._config = load_config(m)
