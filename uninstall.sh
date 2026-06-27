@@ -32,6 +32,7 @@ if [ "$KEEP_MODELS" -eq 0 ]; then
   add "$HOME/.local/share/argos-translate"
   add "$HOME/.local/cache/argos-translate"
   add "$HOME/.config/argos-translate"
+  add "$HOME/.cache/auto-translator"        # locally-built MLX model(s)
 fi
 
 if [ "${#TARGETS[@]}" -eq 0 ]; then

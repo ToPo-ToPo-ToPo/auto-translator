@@ -17,6 +17,7 @@ from importlib import import_module
 _ENGINE_MODULES = [
     "argos_engine",
     "llamacpp_engine",
+    "mlx_engine",
 ]
 
 _cache = {}

@@ -12,6 +12,9 @@ account, no internet required after the first model download.
 - **Optional small-LLM engine: llama.cpp (Gemma 4)** — switchable in the UI. One
   GGUF runs the same on Apple Silicon (Metal), Intel, Linux and Windows. Default
   model is Gemma 4 E2B (auto-downloaded on first use).
+- **Optional small-LLM engine: MLX (Gemma 4 E2B)** — Apple Silicon only. Uses a
+  local MLX model you convert yourself from the official weights (not published);
+  build it once with `tools/build_mlx_model.py`.
 - **GUI:** a local web page served by Python's standard library. Translates as
   you type (auto-detect source).
 
@@ -80,6 +83,23 @@ export AUTO_TRANSLATE_GGUF_FILE=gemma-4-E4B_q4_0-it.gguf
 
 GGUFs are stored under `~/.cache/huggingface`; delete them manually if unwanted.
 
+## Small-LLM engine (MLX, Apple Silicon, optional)
+
+This engine runs a **local MLX model you convert yourself** from the official
+weights (nothing is published). MLX runs efficiently on Apple Silicon.
+
+```bash
+# one-time: convert the official weights to MLX 4-bit (~9.5 GB download -> ~3.3 GB)
+uv run python tools/build_mlx_model.py
+```
+
+Afterwards **"Gemma 4 E2B (MLX)"** appears in the engine menu (~4–5 GB RAM).
+Until it's built, the UI shows a clear "not built yet" reason. Conversion and
+loading must use the **same mlx-vlm (0.6.3)**, so the app pins that version.
+
+- The model lives under `~/.cache/auto-translator/mlx/` (removed by uninstall).
+- `AUTO_TRANSLATE_MLX_MODEL` overrides the local path (or an HF repo id).
+
 ## Configuration (env vars)
 
 | Variable | Default | Purpose |
@@ -89,15 +109,17 @@ GGUFs are stored under `~/.cache/huggingface`; delete them manually if unwanted.
 | `AUTO_TRANSLATE_GGUF` | _(unset)_ | Local GGUF path for llama.cpp (highest priority) |
 | `AUTO_TRANSLATE_GGUF_REPO` | `google/gemma-4-E2B-it-qat-q4_0-gguf` | HF repo to auto-download |
 | `AUTO_TRANSLATE_GGUF_FILE` | `gemma-4-E2B_q4_0-it.gguf` | GGUF filename within the repo |
+| `AUTO_TRANSLATE_MLX_MODEL` | `~/.cache/auto-translator/mlx/gemma-4-E2B-it-qat-mlx-4bit` | MLX model local path (or HF repo id) |
 
 ## How it fits together
 
 ```
 auto-translator.app   double-clickable macOS launcher (uv sync + uv run app.py)
-pyproject.toml        deps (argostranslate / langdetect / llama-cpp-python), via uv
+pyproject.toml        deps (argostranslate / langdetect / llama-cpp-python / mlx-vlm)
 app.py                stdlib HTTP server: /api/config, /api/translate, serves web/
 web/index.html        the UI (vanilla JS, debounced auto-translate)
-engines/              pluggable backends (argos / llamacpp), lazily imported
+engines/              pluggable backends (argos / llamacpp / mlx), lazily imported
+tools/build_mlx_model.py  convert the local MLX model from official weights (Apple Silicon)
 languages.py          language list + code normalization
 ```
 
@@ -110,8 +132,8 @@ in `engines/__init__.py`.
 A script removes everything this app created (it never touches unrelated files):
 
 ```bash
-./uninstall.sh                # venv, logs, caches, Argos language models
-./uninstall.sh --keep-models  # keep the downloaded Argos models
+./uninstall.sh                # venv, logs, caches, Argos models, local MLX model
+./uninstall.sh --keep-models  # keep downloaded/built models
 ./uninstall.sh --yes          # skip the confirmation prompt
 ```
 
