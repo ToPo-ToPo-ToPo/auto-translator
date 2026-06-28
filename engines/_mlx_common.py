@@ -86,15 +86,27 @@ def _cached_snapshot(repo):
 
 
 class MlxModel:
-    def __init__(self, name, label, subdir, hf_repo, env_var):
+    def __init__(self, name, label, subdir, hf_repo, env_var, size_gb=0):
         self.NAME = name
         self.LABEL = label
         self.local_path = os.path.join(CACHE_DIR, subdir)   # locally-built copy
         self.hf_repo = hf_repo                              # published fallback
         self.env_var = env_var
+        self.size_gb = size_gb              # approx download size (for the prompt)
         self._lock = threading.Lock()
         self._loaded = None                 # (model, processor)
         self._config = None
+
+    def pending_download(self):
+        """If running this engine now would trigger a model download, return
+        {'size_gb': N}. Return None if the model is already local/cached (loaded
+        offline, no download)."""
+        if self._loaded is not None:
+            return None
+        m = self.resolve(prefer_cache=True)
+        if os.path.isdir(os.path.expanduser(m)):
+            return None
+        return {"size_gb": self.size_gb}
 
     def resolve(self, prefer_cache=False):
         """env override → local build → (cached HF snapshot) → published HF repo.

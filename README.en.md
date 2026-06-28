@@ -6,15 +6,12 @@ A small, **standalone, offline** translation app — a local alternative to
 DeepL. Type into a standalone app window and it translates instantly. No external API, no
 account, no internet required after the first model download.
 
-- **Default engine: [Argos Translate](https://github.com/argosopentech/argos-translate)** —
-  purpose-built translation models, CPU-only, ~100–200 MB per language pair.
-  Best quality-per-compute and fully offline.
-- **Optional small-LLM engine: llama.cpp (Gemma 4)** — switchable in the UI. One
-  GGUF runs the same on Apple Silicon (Metal), Intel, Linux and Windows. Default
-  model is Gemma 4 E2B (auto-downloaded on first use).
-- **Optional small-LLM engine: MLX (Gemma 4 E2B / E4B)** — Apple Silicon only.
-  Uses a local MLX model you convert yourself from the official weights (not
-  published); build it once with `tools/build_mlx_model.py`.
+- **Default engine (all platforms): [Argos Translate](https://github.com/argosopentech/argos-translate)** —
+  purpose-built NMT, CPU-only, ~100–200 MB per language pair, instant and fully offline.
+- **Optional small-LLM: MLX Gemma 4 E2B / E4B** (Apple Silicon) — selectable in the
+  UI, using the published [`ToPo-ToPo/gemma-4-E2B-it-qat-mlx-4bit`](https://huggingface.co/ToPo-ToPo/gemma-4-E2B-it-qat-mlx-4bit)
+  etc. **If not cached, it asks for confirmation before downloading** (~3.3 GB; offline after).
+- **Optional: llama.cpp (Gemma 4 GGUF)** — off by default (`uv sync --extra llamacpp`).
 - **GUI:** a **standalone app window** (pywebview; WKWebView on macOS) — no
   browser. Translates as you type (auto-detect source).
 

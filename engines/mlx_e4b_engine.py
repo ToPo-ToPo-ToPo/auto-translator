@@ -13,6 +13,7 @@ _engine = MlxModel(
     subdir="gemma-4-E4B-it-qat-mlx-4bit",
     hf_repo="ToPo-ToPo/gemma-4-E4B-it-qat-mlx-4bit",
     env_var="AUTO_TRANSLATE_MLX_E4B_MODEL",
+    size_gb=5.0,
 )
 
 NAME = _engine.NAME
@@ -21,4 +22,5 @@ LOCAL_PATH = _engine.local_path
 HF_REPO = _engine.hf_repo
 is_available = _engine.is_available
 unavailable_reason = _engine.unavailable_reason
+pending_download = _engine.pending_download
 translate = _engine.translate

@@ -79,6 +79,13 @@
   .notice.info { background: var(--accent-dim); color: var(--text); }
   .notice.err  { background: #3a1d1f; color: #ffd9d9; }
   .notice.err .msg { cursor: pointer; text-decoration: underline dotted; }
+  .notice .acts { display: flex; gap: 6px; }
+  .notice .acts button {
+    border: 1px solid var(--border); background: var(--accent); color: #fff;
+    border-radius: 6px; padding: 3px 12px; font-size: 12px; cursor: pointer;
+  }
+  .notice .acts button.sec { background: transparent; color: var(--text); }
+  .notice .acts button:hover { filter: brightness(1.1); }
   @media (prefers-color-scheme: light) {
     .notice.err { background: #fde8e8; color: #8a1c1c; }
   }
@@ -116,6 +123,7 @@
   </header>
   <div id="notice" class="notice" hidden>
     <span class="msg" id="noticeMsg"></span>
+    <span class="acts" id="noticeActions"></span>
     <span class="x" id="noticeX" title="閉じる">✕</span>
   </div>
   <main>
@@ -234,9 +242,21 @@ function showNotice(kind, msg) {
   const n = $("notice");
   n.className = "notice " + (kind === "err" ? "err" : "info");
   $("noticeMsg").textContent = msg;
+  $("noticeActions").innerHTML = "";
   n.hidden = false;
 }
-function clearNotice() { $("notice").hidden = true; noticeKind = null; }
+function clearNotice() { $("notice").hidden = true; noticeKind = null; $("noticeActions").innerHTML = ""; }
+function showConfirm(msg, okLabel, onOk) {
+  showNotice("info", msg);
+  const acts = $("noticeActions");
+  const ok = document.createElement("button");
+  ok.textContent = okLabel;
+  ok.onclick = () => { clearNotice(); onOk(); };
+  const cancel = document.createElement("button");
+  cancel.textContent = "キャンセル"; cancel.className = "sec";
+  cancel.onclick = clearNotice;
+  acts.append(ok, cancel);
+}
 
 function setStatus(kind, msg) {
   const dot = $("dot");
@@ -264,7 +284,7 @@ function swapLangs() {
   translateNow(true);
 }
 
-async function translateNow(force) {
+async function translateNow(force, confirmDownload = false) {
   const text = $("input").value;
   const out = $("output");
   if (!text.trim()) {
@@ -285,11 +305,24 @@ async function translateNow(force) {
         src: $("src").value,
         tgt: $("tgt").value,
         engine: $("engine").value,
+        confirm_download: confirmDownload,
       }),
     });
     const data = await res.json();
     if (seq !== reqSeq) return; // a newer request superseded this one
     if (data.detected) CONFIG.lastDetected = data.detected;
+    if (data.needs_download) {
+      const sel = $("engine");
+      const lbl = sel.options[sel.selectedIndex].textContent;
+      showConfirm(
+        `「${lbl}」のモデル（約${data.size_gb}GB）をダウンロードします。`
+        + `初回のみ・以降はオフラインで動作します。実行しますか？`,
+        "ダウンロードして実行",
+        () => translateNow(true, true),
+      );
+      setStatus("ready", "ダウンロードの確認待ち");
+      return;
+    }
     if (data.error) {
       setStatus("err", "エラー");
       showNotice("err", "エラーがあります。詳細は下部の「ログ」を確認してください。");

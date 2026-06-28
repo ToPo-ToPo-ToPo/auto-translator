@@ -151,6 +151,7 @@ class Handler(BaseHTTPRequestHandler):
             statuses.append(s)
             log(f"  … {s}")
 
+        confirm_download = bool(payload.get("confirm_download"))
         log(f"translate engine={engine_name} {src}->{tgt} ({len(text)} chars)")
         try:
             engine = engines.get_engine(engine_name)
@@ -159,6 +160,15 @@ class Handler(BaseHTTPRequestHandler):
                 raise RuntimeError(
                     reason or f"エンジン '{engine_name}' は利用できません。"
                 )
+            # If using this engine needs a (large) model download, ask first.
+            pending = getattr(engine, "pending_download", lambda: None)()
+            if pending and not confirm_download:
+                log(f"  download needed (~{pending.get('size_gb')}GB) — awaiting confirm")
+                self._send_json(
+                    {"needs_download": True, "engine": engine_name,
+                     "size_gb": pending.get("size_gb"), "detected": detected or src}
+                )
+                return
             result = engine.translate(text, src, tgt, on_status=on_status)
             log(f"  ✓ ok ({len(result)} chars)")
             self._send_json(
