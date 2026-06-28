@@ -338,7 +338,7 @@ async function translateNow(force, confirmDownload = false) {
     } else {
       $("detected").textContent = "";
     }
-    setStatus("ready", (data.status && data.status.length) ? data.status[data.status.length-1] : "完了");
+    setStatus("ready", "完了");
   } catch (e) {
     if (seq !== reqSeq) return;
     setStatus("err", "通信エラー");

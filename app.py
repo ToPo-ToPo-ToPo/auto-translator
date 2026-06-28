@@ -145,10 +145,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"translation": text, "detected": detected or src})
             return
 
-        statuses = []
-
+        # Progress/preparation messages go to the log only (not the GUI status).
         def on_status(s):
-            statuses.append(s)
             log(f"  … {s}")
 
         confirm_download = bool(payload.get("confirm_download"))
@@ -172,7 +170,7 @@ class Handler(BaseHTTPRequestHandler):
             result = engine.translate(text, src, tgt, on_status=on_status)
             log(f"  ✓ ok ({len(result)} chars)")
             self._send_json(
-                {"translation": result, "detected": detected or src, "status": statuses}
+                {"translation": result, "detected": detected or src}
             )
         except Exception as e:
             log(f"  ✗ ERROR [{engine_name}]: {type(e).__name__}: {e}")
@@ -180,7 +178,7 @@ class Handler(BaseHTTPRequestHandler):
             if tb and "NoneType: None" not in tb:
                 log(tb)
             self._send_json(
-                {"error": str(e), "detected": detected or src, "status": statuses},
+                {"error": str(e), "detected": detected or src},
                 status=200,
             )
 
