@@ -6,11 +6,16 @@
 
 set -e
 
-# Project dir: normally the folder containing this .app. If the .app has been
-# moved (e.g. to /Applications or the Dock), fall back to the known location.
+# Project dir: normally the folder containing this .app. If you move
+# auto-translator.app out of its project folder (e.g. to /Applications), set
+# AUTO_TRANSLATE_HOME to the absolute path of your cloned auto-translator dir.
 PROJECT="$(cd "$(dirname "$0")/../../.." && pwd)"
+if [ ! -f "$PROJECT/app.py" ] && [ -n "$AUTO_TRANSLATE_HOME" ]; then
+  PROJECT="$AUTO_TRANSLATE_HOME"
+fi
 if [ ! -f "$PROJECT/app.py" ]; then
-  PROJECT="/path/to/auto-translator"
+  osascript -e 'display alert "auto-translator" message "プロジェクトフォルダが見つかりません。auto-translator.app はクローンしたフォルダ内に置くか、環境変数 AUTO_TRANSLATE_HOME にそのパスを設定してください。"'
+  exit 1
 fi
 cd "$PROJECT"
 
