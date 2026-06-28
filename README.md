@@ -16,6 +16,9 @@ git clone https://github.com/ToPo-ToPo-ToPo/auto-translator.git
 あとは clone したフォルダ内の **`auto-translator.app` をダブルクリック**するだけ。
 初回だけ自動で準備し、単体ウインドウが開きます。文章を入力すると即翻訳されます。
 
+> **Windows / Linux** は実験的（ワンクリック起動なし・未検証）。
+> [docs/installation.md](docs/installation.md) を参照してください。
+
 ## エンジン
 
 - **既定: Argos Translate** — 軽量・即時・完全オフライン。

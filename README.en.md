@@ -16,6 +16,9 @@ git clone https://github.com/ToPo-ToPo-ToPo/auto-translator.git
 Then **double-click `auto-translator.app`** in the cloned folder. The first launch
 sets itself up and opens a standalone window; type and it translates.
 
+> **Windows / Linux** are experimental (no one-click launcher, untested).
+> See [docs/installation.md](docs/installation.md).
+
 ## Engines
 
 - **Default: Argos Translate** — light, instant, fully offline.
