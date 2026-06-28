@@ -213,7 +213,11 @@ def main():
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
     headless = "--no-window" in sys.argv or os.environ.get("AUTO_TRANSLATE_NO_WINDOW")
-    if not headless:
+    # Browser mode: use the real default browser (reliable IME/日本語入力) instead
+    # of the embedded WebView window. Enable with --browser or AUTO_TRANSLATE_BROWSER=1.
+    use_browser = "--browser" in sys.argv or os.environ.get("AUTO_TRANSLATE_BROWSER")
+
+    if not headless and not use_browser:
         try:
             import webview  # native window (macOS: WKWebView — no browser)
             log("opening application window")
@@ -226,10 +230,12 @@ def main():
             return
         except Exception as e:
             log(f"native window unavailable ({type(e).__name__}: {e}); using browser")
+            use_browser = True
 
-    # Fallback / headless: optionally open a browser, then keep serving.
+    # Browser / headless: optionally open a browser, then keep serving.
     no_browser = "--no-browser" in sys.argv or os.environ.get("AUTO_TRANSLATE_NO_BROWSER")
-    if not headless and not no_browser:
+    if use_browser and not no_browser:
+        log("opening in the default browser")
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
     print("  Ctrl-C to stop.")
     try:
