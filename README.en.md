@@ -2,9 +2,9 @@
 
 🌐 日本語: **[README.md](README.md)** ・ 📖 Docs: **[docs/](docs/)** (Japanese)
 
-A standalone, **offline desktop translation app** for macOS — a local alternative
-to DeepL. Type into the window and it translates instantly. No external API, no
-account, no browser.
+- A standalone, offline desktop translation app. 
+- Type into the window and it translates instantly. 
+- No external API, no account, no browser.
 
 ## Quick start (macOS)
 

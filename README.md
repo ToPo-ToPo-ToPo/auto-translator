@@ -2,8 +2,9 @@
 
 🌐 English: **[README.en.md](README.en.md)** ・ 📖 詳しい説明: **[docs/](docs/)**
 
-DeepL の代わりになる、**オフラインで動く単体デスクトップ翻訳アプリ**（macOS）。
-ウインドウに入力するとそばから翻訳します。外部API・アカウント不要・ブラウザ不要。
+- オフラインで動く単体デスクトップ翻訳アプリ。
+- ウインドウに入力するとそばから翻訳します。
+- 外部API・アカウント不要・ブラウザ不要。
 
 ## クイックスタート（macOS）
 
@@ -31,5 +32,5 @@ git clone https://github.com/ToPo-ToPo-ToPo/auto-translator.git
 
 ## ライセンス
 
-[MIT](LICENSE)。翻訳モデル（Argos / Gemma 等）は各提供元のライセンスに従います
-（Gemma 派生は [Gemma 利用規約](https://ai.google.dev/gemma/terms)）。
+- [MIT](LICENSE)
+- 翻訳モデル（Argos / Gemma 等）は各提供元のライセンスに従います（Gemma 派生は [Gemma 利用規約](https://ai.google.dev/gemma/terms)）。
