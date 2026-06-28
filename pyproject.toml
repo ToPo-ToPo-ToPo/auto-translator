@@ -8,6 +8,8 @@ dependencies = [
     "argostranslate>=1.9",
     "langdetect>=1.0.9",
     "huggingface-hub>=0.20",
+    # Standalone desktop window (native WebView; macOS uses WKWebView, no browser).
+    "pywebview>=5",
     # MLX small-LLM engine (Apple Silicon). Default LLM on macOS. Pinned to the
     # version the models were converted with — convert/load must match.
     "mlx-vlm==0.6.3 ; sys_platform == 'darwin' and platform_machine == 'arm64'",

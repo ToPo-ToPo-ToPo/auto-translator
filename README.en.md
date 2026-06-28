@@ -3,7 +3,7 @@
 🌐 日本語版: **[README.md](README.md)**
 
 A small, **standalone, offline** translation app — a local alternative to
-DeepL. Type into a browser UI and it translates instantly. No external API, no
+DeepL. Type into a standalone app window and it translates instantly. No external API, no
 account, no internet required after the first model download.
 
 - **Default engine: [Argos Translate](https://github.com/argosopentech/argos-translate)** —
@@ -15,8 +15,8 @@ account, no internet required after the first model download.
 - **Optional small-LLM engine: MLX (Gemma 4 E2B / E4B)** — Apple Silicon only.
   Uses a local MLX model you convert yourself from the official weights (not
   published); build it once with `tools/build_mlx_model.py`.
-- **GUI:** a local web page served by Python's standard library. Translates as
-  you type (auto-detect source).
+- **GUI:** a **standalone app window** (pywebview; WKWebView on macOS) — no
+  browser. Translates as you type (auto-detect source).
 
 ## Install & launch (macOS)
 
@@ -27,11 +27,10 @@ git clone https://github.com/ToPo-ToPo-ToPo/auto-translator.git
 ```
 
 **Double-click `auto-translator.app`** in the cloned folder — that's the only
-step. It sets itself up on first launch (a few seconds), starts the local
-server, and opens the translator in your browser. Clicking it again just
-re-focuses the tab (it won't start a second copy).
+step. It sets itself up on first launch (a few seconds) and opens a **standalone
+app window** (no browser). Launching again won't start a second copy.
 
-- **To quit:** right-click its Dock icon → **Quit** (this stops the server).
+- **To quit:** close the window (or right-click its Dock icon → Quit).
 - Setup details are logged to `app.log`.
 
 > Not on macOS? Run it from a terminal instead: `uv run python app.py`.
@@ -125,7 +124,7 @@ pins that version.
 
 ```
 auto-translator.app   double-clickable macOS launcher (uv sync + uv run app.py)
-pyproject.toml        deps (argostranslate / langdetect / llama-cpp-python / mlx-vlm)
+pyproject.toml        deps (argostranslate / langdetect / pywebview / mlx-vlm; llamacpp extra)
 app.py                stdlib HTTP server: /api/config, /api/translate, serves web/
 web/index.html        the UI (vanilla JS, debounced auto-translate)
 engines/              pluggable backends (argos / llamacpp / mlx E2B / mlx E4B)

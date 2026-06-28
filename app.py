@@ -198,15 +198,34 @@ def main():
         log(f"  engine {e['name']}: {'available' if e['available'] else 'unavailable'}"
             + (f" — {e['reason']}" if e.get('reason') else ""))
     log(f"  default engine: {engines.default_engine_name()}")
-    print("  Ctrl-C to stop.")
+
+    # Serve in the background; the GUI window (or browser) is the foreground.
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    headless = "--no-window" in sys.argv or os.environ.get("AUTO_TRANSLATE_NO_WINDOW")
+    if not headless:
+        try:
+            import webview  # native window (macOS: WKWebView — no browser)
+            log("opening application window")
+            webview.create_window(
+                "auto-translator", url,
+                width=1024, height=700, min_size=(680, 460),
+            )
+            webview.start()          # blocks on the main thread until window closes
+            log("window closed; exiting")
+            return
+        except Exception as e:
+            log(f"native window unavailable ({type(e).__name__}: {e}); using browser")
+
+    # Fallback / headless: optionally open a browser, then keep serving.
     no_browser = "--no-browser" in sys.argv or os.environ.get("AUTO_TRANSLATE_NO_BROWSER")
-    if not no_browser:
+    if not headless and not no_browser:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+    print("  Ctrl-C to stop.")
     try:
-        server.serve_forever()
+        threading.Event().wait()     # block forever (server runs in the thread)
     except KeyboardInterrupt:
         print("\nbye.")
-        server.shutdown()
 
 
 if __name__ == "__main__":
