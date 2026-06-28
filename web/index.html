@@ -78,6 +78,7 @@
   .notice .x:hover { opacity: 1; }
   .notice.info { background: var(--accent-dim); color: var(--text); }
   .notice.err  { background: #3a1d1f; color: #ffd9d9; }
+  .notice.err .msg { cursor: pointer; text-decoration: underline dotted; }
   @media (prefers-color-scheme: light) {
     .notice.err { background: #fde8e8; color: #8a1c1c; }
   }
@@ -199,6 +200,7 @@ async function init() {
   $("swap").addEventListener("click", swapLangs);
   $("copy").addEventListener("click", copyOut);
   $("noticeX").addEventListener("click", clearNotice);
+  $("noticeMsg").addEventListener("click", () => { if (noticeKind === "err") openLogs(); });
 
   // Log panel: refresh while open, copy for debugging.
   $("logpanel").addEventListener("toggle", (e) => {
@@ -289,8 +291,9 @@ async function translateNow(force) {
     if (seq !== reqSeq) return; // a newer request superseded this one
     if (data.detected) CONFIG.lastDetected = data.detected;
     if (data.error) {
-      setStatus("err", "エラーが発生しました");
-      showNotice("err", data.error);
+      setStatus("err", "エラー");
+      showNotice("err", "エラーがあります。詳細は下部の「ログ」を確認してください。");
+      if (logTimer) fetchLogs();   // refresh if the log panel is already open
       return;
     }
     if (noticeKind === "err") clearNotice();  // a good result clears stale errors
@@ -306,8 +309,15 @@ async function translateNow(force) {
   } catch (e) {
     if (seq !== reqSeq) return;
     setStatus("err", "通信エラー");
-    showNotice("err", "サーバと通信できませんでした: " + e.message);
+    showNotice("err", "サーバと通信できませんでした。詳細は下部の「ログ」を確認してください。");
   }
+}
+
+function openLogs() {
+  const lp = $("logpanel");
+  if (!lp.open) lp.open = true;   // fires 'toggle' -> starts polling
+  fetchLogs();
+  lp.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function copyOut() {
