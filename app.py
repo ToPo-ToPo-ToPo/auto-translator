@@ -117,7 +117,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def do_POST(self):
-        if self.path != "/api/translate":
+        if self.path not in ("/api/translate", "/api/alternatives"):
             self.send_error(404)
             return
         try:
@@ -125,6 +125,10 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
         except (ValueError, json.JSONDecodeError):
             self._send_json({"error": "bad request"}, status=400)
+            return
+
+        if self.path == "/api/alternatives":
+            self._handle_alternatives(payload)
             return
 
         text = payload.get("text", "")
@@ -181,6 +185,51 @@ class Handler(BaseHTTPRequestHandler):
                 {"error": str(e), "detected": detected or src},
                 status=200,
             )
+
+
+    def _handle_alternatives(self, payload):
+        """Post-edit helper: alternative wordings for a selected word/phrase in
+        the translation. Only LLM engines (Gemma) support this; others (and a
+        not-yet-downloaded model) return unsupported so the UI can say why."""
+        sentence = payload.get("sentence", "")
+        selection = payload.get("selection", "")
+        src = payload.get("src", "auto")
+        tgt = payload.get("tgt", "en")
+        engine_name = payload.get("engine") or engines.default_engine_name()
+
+        if not selection.strip():
+            self._send_json({"alternatives": []})
+            return
+        try:
+            engine = engines.get_engine(engine_name)
+        except KeyError:
+            self._send_json({"alternatives": [], "unsupported": True,
+                             "reason": f"エンジン '{engine_name}' は利用できません。"})
+            return
+
+        fn = getattr(engine, "alternatives", None)
+        if not fn or not engine.is_available():
+            self._send_json(
+                {"alternatives": [], "unsupported": True,
+                 "reason": "言い換え候補は LLM エンジン（Gemma）を選択したときに利用できます。"}
+            )
+            return
+        if getattr(engine, "pending_download", lambda: None)():
+            self._send_json(
+                {"alternatives": [], "unsupported": True,
+                 "reason": "モデル未取得のため候補を出せません。先に翻訳してモデルを読み込んでください。"}
+            )
+            return
+
+        log(f"alternatives engine={engine_name} tgt={tgt} sel='{selection[:40]}'")
+        try:
+            alts = fn(sentence, selection, src, tgt,
+                      on_status=lambda s: log(f"  … {s}"))
+            log(f"  ✓ {len(alts)} 候補")
+            self._send_json({"alternatives": alts})
+        except Exception as e:
+            log(f"  ✗ alternatives ERROR [{engine_name}]: {type(e).__name__}: {e}")
+            self._send_json({"alternatives": [], "error": str(e)})
 
 
 class Server(ThreadingHTTPServer):

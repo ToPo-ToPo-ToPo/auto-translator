@@ -14,7 +14,9 @@ google/gemma-4-E4B-it-qat-q4_0-gguf / gemma-4-E4B_q4_0-it.gguf.
 
 import os
 import threading
+import time
 
+from engines import _idle
 from languages import NAMES
 
 NAME = "llamacpp"
@@ -29,6 +31,9 @@ GGUF_FILE = os.environ.get("AUTO_TRANSLATE_GGUF_FILE", "gemma-4-E2B_q4_0-it.gguf
 _lock = threading.Lock()
 _llm = None
 _resolved_path = None
+_last_used = 0.0
+_idle_timeout = _idle.timeout_sec()
+_watcher_started = False
 
 
 def is_applicable():
@@ -76,7 +81,7 @@ def _model_path(on_status):
 
 
 def _ensure_loaded(on_status):
-    global _llm
+    global _llm, _last_used, _watcher_started
     if _llm is None:
         from llama_cpp import Llama
         path = _model_path(on_status)
@@ -88,7 +93,30 @@ def _ensure_loaded(on_status):
             n_gpu_layers=-1,   # offload to Metal/GPU where available; CPU otherwise
             verbose=False,
         )
+        if not _watcher_started:
+            _watcher_started = True
+            _idle.start_watcher(
+                NAME,
+                is_loaded=lambda: _llm is not None,
+                seconds_idle=lambda: time.monotonic() - _last_used,
+                unload=unload,
+            )
+    _last_used = time.monotonic()
     return _llm
+
+
+def unload():
+    """Drop the resident LLM so its memory is freed. Idempotent and safe to call
+    from the idle watcher (re-checks idleness under the lock)."""
+    global _llm
+    with _lock:
+        if _llm is None:
+            return
+        if time.monotonic() - _last_used < _idle_timeout:
+            return
+        _llm = None
+    _idle.free_accelerator_memory()
+    print(f"[{NAME}] 一定時間未使用のため LLM をメモリから解放しました。")
 
 
 def _lang(code):
@@ -118,4 +146,25 @@ def translate(text, src, tgt, on_status=None):
             max_tokens=max(64, len(text) * 3),
             temperature=0.2,
         )
+        global _last_used
+        _last_used = time.monotonic()
         return resp["choices"][0]["message"]["content"].strip()
+
+
+def alternatives(sentence, selection, src, tgt, on_status=None):
+    """Return alternative wordings for `selection` within `sentence` (used by
+    the post-edit UI). Empty list if there's nothing to work with."""
+    if not (sentence.strip() and selection.strip()):
+        return []
+    from engines._llm_util import alt_prompt, parse_alternatives
+
+    with _lock:
+        llm = _ensure_loaded(on_status)
+        resp = llm.create_chat_completion(
+            messages=[{"role": "user", "content": alt_prompt(sentence, selection, src, tgt)}],
+            max_tokens=160,
+            temperature=0.4,
+        )
+        global _last_used
+        _last_used = time.monotonic()
+    return parse_alternatives(resp["choices"][0]["message"]["content"], selection)

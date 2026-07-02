@@ -24,3 +24,5 @@ is_available = _engine.is_available
 unavailable_reason = _engine.unavailable_reason
 pending_download = _engine.pending_download
 translate = _engine.translate
+alternatives = _engine.alternatives
+unload = _engine.unload

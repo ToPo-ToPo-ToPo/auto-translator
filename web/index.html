@@ -52,7 +52,30 @@
     font-size: 21px; line-height: 1.55; font-family: inherit;
     overflow: auto; white-space: pre-wrap; word-break: break-word;
   }
-  .output.placeholder { color: var(--muted); }
+  /* Output is editable + drag-selectable (correct wording, copy freely). */
+  .output {
+    -webkit-user-select: text; user-select: text; cursor: text;
+  }
+  .output:empty::before { content: "翻訳結果"; color: var(--muted); }
+  /* Alternative-wording popup (post-edit) */
+  .altmenu {
+    position: fixed; z-index: 50; min-width: 140px; max-width: 280px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 4px; box-shadow: 0 8px 28px rgba(0,0,0,.35);
+    font-size: 14px; max-height: 46vh; overflow: auto;
+  }
+  .altmenu[hidden] { display: none; }
+  .altmenu .althead {
+    padding: 5px 10px 6px; font-size: 11px; color: var(--muted);
+    border-bottom: 1px solid var(--border); margin-bottom: 4px;
+  }
+  .altmenu button {
+    display: block; width: 100%; text-align: left; background: transparent;
+    border: none; color: var(--text); border-radius: 7px; padding: 7px 10px;
+    font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  .altmenu button:hover { background: var(--accent-dim); }
+  .altmenu .altnote { padding: 7px 10px; color: var(--muted); font-size: 12.5px; }
   .dot {
     width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
     display: inline-block;
@@ -134,11 +157,14 @@
     <section class="pane">
       <div class="pane-head">
         <span id="detected" class="status"></span>
+        <button class="copy" id="reset" title="編集した内容を、翻訳直後の状態に戻します" hidden>元に戻す</button>
         <button class="copy" id="copy">コピー</button>
       </div>
-      <div class="output placeholder" id="output">翻訳結果</div>
+      <div class="output" id="output" contenteditable="true" spellcheck="false"
+           title="ドラッグで選択してコピー・直接編集できます。単語をダブルクリックすると言い換え候補（Gemmaエンジン選択時）"></div>
     </section>
   </main>
+  <div class="altmenu" id="altmenu" hidden></div>
   <details class="logpanel" id="logpanel">
     <summary>
       ログ
@@ -155,6 +181,8 @@ const $ = (id) => document.getElementById(id);
 let CONFIG = null;
 let timer = null;
 let reqSeq = 0;
+let altSeq = 0;
+let lastTranslation = "";   // server result of the latest translation (for "元に戻す")
 
 function fillLangSelect(sel, langs, includeAuto) {
   sel.innerHTML = "";
@@ -207,6 +235,14 @@ async function init() {
   $("tgt").addEventListener("change", () => translateNow(true));
   $("swap").addEventListener("click", swapLangs);
   $("copy").addEventListener("click", copyOut);
+  $("reset").addEventListener("click", resetTranslation);
+  $("output").addEventListener("dblclick", onWordDblClick);
+  $("output").addEventListener("input", updateResetBtn);
+  // Dismiss the alternatives popup on outside click / Escape.
+  document.addEventListener("mousedown", (e) => {
+    if (!$("altmenu").contains(e.target)) hideAltMenu();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideAltMenu(); });
   $("noticeX").addEventListener("click", clearNotice);
   $("noticeMsg").addEventListener("click", () => { if (noticeKind === "err") openLogs(); });
 
@@ -279,7 +315,7 @@ function swapLangs() {
     $("src").value = t; $("tgt").value = s;
   }
   // also swap the texts for a natural feel
-  const out = $("output").classList.contains("placeholder") ? "" : $("output").textContent;
+  const out = $("output").textContent;
   if (out) { $("input").value = out; }
   translateNow(true);
 }
@@ -288,8 +324,10 @@ async function translateNow(force, confirmDownload = false) {
   const text = $("input").value;
   const out = $("output");
   if (!text.trim()) {
-    out.textContent = "翻訳結果";
-    out.classList.add("placeholder");
+    out.textContent = "";          // empty -> CSS shows the placeholder
+    lastTranslation = "";
+    updateResetBtn();
+    hideAltMenu();
     $("detected").textContent = "";
     setStatus("ready", "準備完了。入力してください。");
     return;
@@ -331,7 +369,9 @@ async function translateNow(force, confirmDownload = false) {
     }
     if (noticeKind === "err") clearNotice();  // a good result clears stale errors
     out.textContent = data.translation || "";
-    out.classList.toggle("placeholder", !data.translation);
+    lastTranslation = data.translation || "";
+    updateResetBtn();
+    hideAltMenu();
     if ($("src").value === "auto" && data.detected) {
       const l = CONFIG.languages.find((x) => x.code === data.detected);
       $("detected").textContent = "検出: " + (l ? l.native : data.detected);
@@ -354,11 +394,103 @@ function openLogs() {
 }
 
 function copyOut() {
-  const t = $("output").classList.contains("placeholder") ? "" : $("output").textContent;
+  const t = $("output").textContent;
   if (t) navigator.clipboard.writeText(t).then(() => {
     $("copy").textContent = "コピーしました";
     setTimeout(() => ($("copy").textContent = "コピー"), 1200);
   });
+}
+
+// ---- Post-edit: show/hide the "元に戻す" button, restore last translation ----
+function updateResetBtn() {
+  const edited = lastTranslation && $("output").textContent !== lastTranslation;
+  $("reset").hidden = !edited;
+}
+function resetTranslation() {
+  $("output").textContent = lastTranslation;
+  updateResetBtn();
+  hideAltMenu();
+}
+
+// ---- Post-edit: alternative wording on double-click ------------------------
+function hideAltMenu() { $("altmenu").hidden = true; $("altmenu").innerHTML = ""; }
+
+async function onWordDblClick(e) {
+  const eng = CONFIG && CONFIG.engines.find((x) => x.name === $("engine").value);
+  if (!eng || !eng.alternatives) return;   // only LLM engines offer alternatives
+  const sel = window.getSelection();
+  const word = sel && sel.toString().trim();
+  if (!word) return;
+  const range = sel.getRangeAt(0).cloneRange();
+  const sentence = $("output").textContent;
+  showAltMenu(e.clientX, e.clientY, word, sentence, range);
+}
+
+function positionAltMenu(x, y) {
+  const m = $("altmenu");
+  m.style.left = "0px"; m.style.top = "0px"; m.hidden = false;
+  const w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.max(6, Math.min(x, window.innerWidth - w - 6)) + "px";
+  m.style.top = Math.max(6, Math.min(y + 8, window.innerHeight - h - 6)) + "px";
+}
+
+async function showAltMenu(x, y, word, sentence, range) {
+  const m = $("altmenu");
+  m.innerHTML = `<div class="althead">「${word}」の言い換え</div>`
+    + `<div class="altnote">候補を取得中…</div>`;
+  positionAltMenu(x, y);
+  const menuSeq = ++altSeq;
+  let data;
+  try {
+    const res = await fetch("/api/alternatives", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sentence, selection: word,
+        src: CONFIG.lastDetected || $("src").value,
+        tgt: $("tgt").value,
+        engine: $("engine").value,
+      }),
+    });
+    data = await res.json();
+  } catch (e) {
+    data = { error: "通信エラー" };
+  }
+  if (menuSeq !== altSeq || m.hidden) return;   // superseded or dismissed
+  const note = (msg) => `<div class="altnote">${msg}</div>`;
+  let body = `<div class="althead">「${word}」の言い換え</div>`;
+  if (data.unsupported) {
+    body += note(data.reason || "この機能は利用できません。");
+  } else if (data.error) {
+    body += note("候補を取得できませんでした。");
+  } else if (!data.alternatives || !data.alternatives.length) {
+    body += note("候補が見つかりませんでした。");
+  } else {
+    m.innerHTML = body;
+    for (const alt of data.alternatives) {
+      const b = document.createElement("button");
+      b.textContent = alt;
+      b.onclick = () => { replaceRange(range, alt); hideAltMenu(); };
+      m.appendChild(b);
+    }
+    positionAltMenu(x, y);
+    return;
+  }
+  m.innerHTML = body;
+  positionAltMenu(x, y);
+}
+
+function replaceRange(range, text) {
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  $("output").focus();
+  // execCommand keeps a native undo entry; fall back to manual DOM edit.
+  if (!document.execCommand || !document.execCommand("insertText", false, text)) {
+    range.deleteContents();
+    range.insertNode(document.createTextNode(text));
+  }
+  updateResetBtn();
 }
 
 init();

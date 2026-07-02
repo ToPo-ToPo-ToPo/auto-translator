@@ -51,7 +51,12 @@ def list_engines():
             if not _applicable(mod):
                 continue
             avail = bool(mod.is_available())
-            entry = {"name": mod.NAME, "label": mod.LABEL, "available": avail}
+            entry = {
+                "name": mod.NAME,
+                "label": mod.LABEL,
+                "available": avail,
+                "alternatives": hasattr(mod, "alternatives"),  # LLM post-edit support
+            }
             if not avail:
                 entry["reason"] = _reason(mod) or "利用できません。"
             out.append(entry)
