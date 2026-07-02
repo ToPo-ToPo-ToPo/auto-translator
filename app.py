@@ -18,9 +18,10 @@ import traceback
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import detection
 import engines
 import settings
-from languages import LANGUAGES, normalize_code
+from languages import LANGUAGES
 
 HOST = os.environ.get("AUTO_TRANSLATE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("AUTO_TRANSLATE_PORT", "8765"))
@@ -62,13 +63,6 @@ class _Tee:
         return False
 
 
-def detect_language(text):
-    """Best-effort source detection. Returns an ISO code or None."""
-    try:
-        from langdetect import detect
-        return normalize_code(detect(text))
-    except Exception:
-        return None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -151,11 +145,18 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         detected = None
+        tgt_used = None
         if src == "auto":
-            detected = detect_language(text)
+            detected = detection.detect(text)
             src = detected or "en"
+            if src == tgt:
+                # Typing in the language you're translating INTO (e.g. Japanese
+                # text with the default target 日本語) used to echo the input
+                # back. Translate to the alternate language instead.
+                tgt = "en" if tgt != "en" else "ja"
+                tgt_used = tgt
 
-        if src == tgt:
+        if src == tgt:  # user explicitly chose the same languages — echo as-is
             self._send_json({"translation": text, "detected": detected or src})
             return
 
@@ -183,9 +184,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             result = engine.translate(text, src, tgt, on_status=on_status)
             log(f"  ✓ ok ({len(result)} chars)")
-            self._send_json(
-                {"translation": result, "detected": detected or src}
-            )
+            resp = {"translation": result, "detected": detected or src}
+            if tgt_used:
+                resp["tgt_used"] = tgt_used
+            self._send_json(resp)
         except Exception as e:
             log(f"  ✗ ERROR [{engine_name}]: {type(e).__name__}: {e}")
             tb = traceback.format_exc()
@@ -265,6 +267,9 @@ def main():
         log(f"  engine {e['name']}: {'available' if e['available'] else 'unavailable'}"
             + (f" — {e['reason']}" if e.get('reason') else ""))
     log(f"  default engine: {engines.default_engine_name()}")
+    # Load the language detector in the background so the first translation
+    # doesn't pay for it (and concurrent first requests can't race the init).
+    detection.prewarm()
 
     # Serve in the background; the GUI window (or browser) is the foreground.
     threading.Thread(target=server.serve_forever, daemon=True).start()

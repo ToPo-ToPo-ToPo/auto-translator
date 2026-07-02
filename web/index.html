@@ -515,7 +515,15 @@ async function translateNow(force, confirmDownload = false) {
     hideAltMenu();
     if ($("src").value === "auto" && data.detected) {
       const l = CONFIG.languages.find((x) => x.code === data.detected);
-      $("detected").textContent = "検出: " + (l ? l.native : data.detected);
+      let msg = "検出: " + (l ? l.native : data.detected);
+      // The server translated to the alternate language because the detected
+      // source equalled the target. Follow it in the selector (like DeepL).
+      if (data.tgt_used && data.tgt_used !== $("tgt").value) {
+        $("tgt").value = data.tgt_used;
+        const t = CONFIG.languages.find((x) => x.code === data.tgt_used);
+        msg += " → " + (t ? t.native : data.tgt_used) + " に翻訳";
+      }
+      $("detected").textContent = msg;
     } else {
       $("detected").textContent = "";
     }
