@@ -99,7 +99,6 @@ class MlxModel:
         self._loaded = None                 # (model, processor)
         self._config = None
         self._last_used = 0.0               # time.monotonic() of last use
-        self._idle_timeout = _idle.timeout_sec()
         self._watcher_started = False
 
     def pending_download(self):
@@ -191,10 +190,11 @@ class MlxModel:
         """Drop the resident model so its memory is freed. Idempotent and safe
         to call from the idle watcher; re-checks idleness under the lock so a
         translation that just started isn't unloaded out from under itself."""
+        timeout = _idle.timeout_sec()
         with self._lock:
             if self._loaded is None:
                 return
-            if time.monotonic() - self._last_used < self._idle_timeout:
+            if timeout > 0 and time.monotonic() - self._last_used < timeout:
                 return  # got used again while we were waiting for the lock
             self._loaded = None
             self._config = None
@@ -204,6 +204,7 @@ class MlxModel:
     def translate(self, text, src, tgt, on_status=None):
         if not text.strip():
             return ""
+        import settings
         from mlx_vlm import generate
         from mlx_vlm.prompt_utils import apply_chat_template
 
@@ -217,7 +218,8 @@ class MlxModel:
             prompt = apply_chat_template(processor, config, msg, num_images=0)
             res = generate(
                 model, processor, prompt,
-                max_tokens=max(64, len(text) * 3), verbose=False,
+                max_tokens=settings.max_tokens(max(64, len(text) * 3)),
+                temperature=settings.temperature(), verbose=False,
             )
             self._last_used = time.monotonic()
             return (res if isinstance(res, str) else getattr(res, "text", str(res))).strip()
@@ -236,7 +238,9 @@ class MlxModel:
             (model, processor), config = self._ensure(on_status)
             msg = alt_prompt(sentence, selection, src, tgt)
             prompt = apply_chat_template(processor, config, msg, num_images=0)
-            res = generate(model, processor, prompt, max_tokens=160, verbose=False)
+            # A little warmth here gives more varied wording suggestions.
+            res = generate(model, processor, prompt, max_tokens=160,
+                           temperature=0.6, verbose=False)
             self._last_used = time.monotonic()
         raw = res if isinstance(res, str) else getattr(res, "text", str(res))
         return parse_alternatives(raw, selection)

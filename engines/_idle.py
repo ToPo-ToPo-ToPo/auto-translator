@@ -5,23 +5,33 @@ used for a while, we release the model from memory; the next translation simply
 reloads it. One lightweight daemon thread per engine polls an "is it idle?"
 predicate and calls the engine's own (thread-safe) unload function.
 
-Idle timeout is `AUTO_TRANSLATE_IDLE_UNLOAD_SEC` seconds (default 300 = 5 min).
-Set it to 0 (or a negative value) to disable automatic unloading entirely.
+Idle timeout comes from the settings panel (`idle_unload_sec`), overridable by
+`AUTO_TRANSLATE_IDLE_UNLOAD_SEC`. Either at 0 (or negative) disables unloading.
+The watcher re-reads the timeout every poll, so changing it in the UI takes
+effect without a restart.
 """
 
 import os
 import threading
 import time
 
+import settings
+
 
 def timeout_sec(default=300.0):
-    """Idle timeout in seconds from the env (default 5 min); <=0 disables it."""
+    """Current idle timeout in seconds; <=0 disables unloading.
+
+    The env var, when set, wins (explicit operator override); otherwise the
+    value comes from the live settings so the UI can change it at runtime."""
     raw = os.environ.get("AUTO_TRANSLATE_IDLE_UNLOAD_SEC")
-    if raw is None or raw == "":
-        return default
+    if raw not in (None, ""):
+        try:
+            return float(raw)
+        except ValueError:
+            pass
     try:
-        return float(raw)
-    except ValueError:
+        return float(settings.idle_unload_sec())
+    except Exception:
         return default
 
 
@@ -55,18 +65,17 @@ def start_watcher(name, is_loaded, seconds_idle, unload):
                              and re-check idleness itself to avoid a race with a
                              translation that started while we were waiting).
 
-    No-op (returns without starting a thread) when the timeout is disabled.
+    The thread stays alive even while unloading is disabled (timeout <= 0), so
+    re-enabling it from the settings panel resumes without a restart.
     """
-    timeout = timeout_sec()
-    if timeout <= 0:
-        return
-    poll = max(5.0, min(30.0, timeout / 2))
 
     def loop():
         while True:
-            time.sleep(poll)
+            timeout = timeout_sec()
+            time.sleep(max(5.0, min(30.0, (timeout / 2) if timeout > 0 else 15.0)))
             try:
-                if is_loaded() and seconds_idle() >= timeout:
+                timeout = timeout_sec()
+                if timeout > 0 and is_loaded() and seconds_idle() >= timeout:
                     unload()
             except Exception:
                 pass

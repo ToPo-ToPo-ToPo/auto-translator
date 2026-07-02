@@ -44,7 +44,7 @@ uv sync --extra llamacpp
 | `AUTO_TRANSLATE_MLX_E4B_MODEL` | `ToPo-ToPo/gemma-4-E4B-it-qat-mlx-4bit` | MLX(E4B) モデル |
 | `AUTO_TRANSLATE_GGUF` | _(未設定)_ | llama.cpp 用ローカルGGUFパス（最優先） |
 | `AUTO_TRANSLATE_GGUF_REPO` / `_FILE` | E2B GGUF | llama.cpp で自動DLするHFリポジトリ/ファイル |
-| `AUTO_TRANSLATE_IDLE_UNLOAD_SEC` | `300` | LLMを自動解放するまでの未使用秒数（`0`で無効） |
+| `AUTO_TRANSLATE_IDLE_UNLOAD_SEC` | _(設定パネル)_ | LLM自動解放までの未使用秒数。設定値より優先（`0`で無効） |
 
 ### モデルの解決順（MLX）
 

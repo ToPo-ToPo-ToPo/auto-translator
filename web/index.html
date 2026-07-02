@@ -15,6 +15,15 @@
       --muted: #6b7280; --accent: #2563eb; --accent-dim: #dbe6ff;
     }
   }
+  /* Manual theme (settings panel) overrides the system preference. */
+  :root[data-theme="dark"] {
+    --bg: #0f1115; --panel: #171a21; --border: #262b36; --text: #e6e9ef;
+    --muted: #8b93a7; --accent: #4f8cff; --accent-dim: #2a3b5e;
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f6f8; --panel: #ffffff; --border: #e1e4ea; --text: #1b1f27;
+    --muted: #6b7280; --accent: #2563eb; --accent-dim: #dbe6ff;
+  }
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
@@ -49,7 +58,7 @@
   textarea, .output {
     flex: 1; width: 100%; border: none; outline: none; resize: none;
     background: transparent; color: var(--text); padding: 8px 18px 18px;
-    font-size: 21px; line-height: 1.55; font-family: inherit;
+    font-size: var(--io-font, 21px); line-height: 1.55; font-family: inherit;
     overflow: auto; white-space: pre-wrap; word-break: break-word;
   }
   /* Output is editable + drag-selectable (correct wording, copy freely). */
@@ -133,6 +142,45 @@
     line-height: 1.5; white-space: pre-wrap; word-break: break-word;
     background: rgba(127,127,127,.06); color: var(--text);
   }
+  /* Settings modal */
+  .modal {
+    position: fixed; inset: 0; z-index: 100; display: flex;
+    align-items: center; justify-content: center; padding: 20px;
+    background: rgba(0,0,0,.45);
+  }
+  .modal[hidden] { display: none; }
+  .sheet {
+    width: 100%; max-width: 460px; max-height: 88vh; display: flex;
+    flex-direction: column; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    box-shadow: 0 18px 60px rgba(0,0,0,.5);
+  }
+  .sheet-head, .sheet-foot {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  }
+  .sheet-head { border-bottom: 1px solid var(--border); font-size: 15px; }
+  .sheet-head .x { margin-left: auto; cursor: pointer; opacity: .65; }
+  .sheet-head .x:hover { opacity: 1; }
+  .sheet-body { padding: 6px 16px 12px; overflow: auto; }
+  .sheet-foot { border-top: 1px solid var(--border); }
+  .sheet-foot .spacer { flex: 1; }
+  .grp { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .grp:last-child { border-bottom: none; }
+  .grp-title { font-size: 12px; color: var(--muted); margin-bottom: 8px; letter-spacing: .3px; }
+  .grp .hint { margin: -2px 0 10px; font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .fld { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; font-size: 13.5px; }
+  .fld.row { flex-direction: row; align-items: center; justify-content: space-between; }
+  .fld > span { color: var(--text); }
+  .fld em { color: var(--muted); font-style: normal; font-variant-numeric: tabular-nums; }
+  .fld select { width: 100%; }
+  .fld input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .fld input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
+  .btn {
+    border: 1px solid var(--accent); background: var(--accent); color: #fff;
+    border-radius: 8px; padding: 7px 16px; font-size: 13px; cursor: pointer;
+  }
+  .btn.sec { background: transparent; color: var(--text); border-color: var(--border); }
+  .btn:hover { filter: brightness(1.08); }
 </style>
 </head>
 <body>
@@ -143,7 +191,69 @@
     <select id="src" title="原文の言語"></select>
     <button class="swap" id="swap" title="言語を入れ替え">⇄</button>
     <select id="tgt" title="翻訳先の言語"></select>
+    <button class="swap" id="settingsBtn" title="設定">⚙</button>
   </header>
+
+  <div class="modal" id="settingsModal" hidden>
+    <div class="sheet" role="dialog" aria-label="設定">
+      <div class="sheet-head">
+        <strong>設定</strong>
+        <button class="x" id="settingsClose" title="閉じる">✕</button>
+      </div>
+      <div class="sheet-body">
+        <section class="grp">
+          <div class="grp-title">表示</div>
+          <label class="fld">
+            <span>テーマ</span>
+            <select id="set_theme">
+              <option value="auto">システムに合わせる</option>
+              <option value="dark">ダーク</option>
+              <option value="light">ライト</option>
+            </select>
+          </label>
+          <label class="fld">
+            <span>文字サイズ <em id="set_font_size_val"></em></span>
+            <input type="range" id="set_font_size" min="12" max="40" step="1" />
+          </label>
+        </section>
+
+        <section class="grp">
+          <div class="grp-title">翻訳の動作</div>
+          <label class="fld row">
+            <span>入力中に自動翻訳</span>
+            <input type="checkbox" id="set_auto_translate" />
+          </label>
+          <label class="fld">
+            <span>自動翻訳までの待ち時間 <em id="set_debounce_ms_val"></em></span>
+            <input type="range" id="set_debounce_ms" min="50" max="2000" step="50" />
+          </label>
+        </section>
+
+        <section class="grp">
+          <div class="grp-title">LLM（Gemma）パラメータ</div>
+          <p class="hint">Argos（NMT）では無効です。MLX / llama.cpp 使用時に反映されます。</p>
+          <label class="fld">
+            <span>生成温度（temperature） <em id="set_temperature_val"></em></span>
+            <input type="range" id="set_temperature" min="0" max="1.5" step="0.05" />
+          </label>
+          <label class="fld">
+            <span>最大生成トークン <em id="set_max_tokens_val"></em></span>
+            <input type="range" id="set_max_tokens" min="0" max="4096" step="64" />
+          </label>
+          <label class="fld">
+            <span>未使用モデルの自動解放 <em id="set_idle_unload_sec_val"></em></span>
+            <input type="range" id="set_idle_unload_sec" min="0" max="3600" step="30" />
+          </label>
+        </section>
+      </div>
+      <div class="sheet-foot">
+        <button class="btn sec" id="settingsReset">既定に戻す</button>
+        <span class="spacer"></span>
+        <button class="btn sec" id="settingsCancel">キャンセル</button>
+        <button class="btn" id="settingsSave">保存</button>
+      </div>
+    </div>
+  </div>
   <div id="notice" class="notice" hidden>
     <span class="msg" id="noticeMsg"></span>
     <span class="acts" id="noticeActions"></span>
@@ -183,6 +293,16 @@ let timer = null;
 let reqSeq = 0;
 let altSeq = 0;
 let lastTranslation = "";   // server result of the latest translation (for "元に戻す")
+let SETTINGS = {};          // current user settings (from /api/settings)
+let SETTINGS_DEFAULTS = {};
+// Slider fields: id -> value formatter for the little live-value label.
+const SLIDERS = {
+  set_font_size:       (v) => v + "px",
+  set_debounce_ms:     (v) => v + " ms",
+  set_temperature:     (v) => Number(v).toFixed(2),
+  set_max_tokens:      (v) => (Number(v) === 0 ? "自動" : v),
+  set_idle_unload_sec: (v) => (Number(v) === 0 ? "無効" : (v % 60 === 0 ? (v/60) + " 分" : v + " 秒")),
+};
 
 function fillLangSelect(sel, langs, includeAuto) {
   sel.innerHTML = "";
@@ -200,6 +320,7 @@ function fillLangSelect(sel, langs, includeAuto) {
 }
 
 async function init() {
+  await loadSettings();
   CONFIG = await (await fetch("/api/config")).json();
   fillLangSelect($("src"), CONFIG.languages, true);
   fillLangSelect($("tgt"), CONFIG.languages, false);
@@ -230,10 +351,27 @@ async function init() {
   }
 
   $("input").addEventListener("input", schedule);
+  // When auto-translate is off, translate on blur or ⌘/Ctrl+Enter instead.
+  $("input").addEventListener("blur", () => { if (!SETTINGS.auto_translate) translateNow(false); });
+  $("input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); translateNow(true); }
+  });
   $("engine").addEventListener("change", () => translateNow(true));
   $("src").addEventListener("change", () => translateNow(true));
   $("tgt").addEventListener("change", () => translateNow(true));
   $("swap").addEventListener("click", swapLangs);
+  // Settings modal
+  $("settingsBtn").addEventListener("click", openSettings);
+  $("settingsClose").addEventListener("click", closeSettings);
+  $("settingsCancel").addEventListener("click", closeSettings);
+  $("settingsSave").addEventListener("click", saveSettings);
+  $("settingsReset").addEventListener("click", () => applyToForm(SETTINGS_DEFAULTS));
+  $("settingsModal").addEventListener("mousedown", (e) => {
+    if (e.target === $("settingsModal")) closeSettings();
+  });
+  for (const id of Object.keys(SLIDERS)) {
+    $(id).addEventListener("input", () => updateSliderLabel(id));
+  }
   $("copy").addEventListener("click", copyOut);
   $("reset").addEventListener("click", resetTranslation);
   $("output").addEventListener("dblclick", onWordDblClick);
@@ -242,7 +380,9 @@ async function init() {
   document.addEventListener("mousedown", (e) => {
     if (!$("altmenu").contains(e.target)) hideAltMenu();
   });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideAltMenu(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { hideAltMenu(); closeSettings(); }
+  });
   $("noticeX").addEventListener("click", clearNotice);
   $("noticeMsg").addEventListener("click", () => { if (noticeKind === "err") openLogs(); });
 
@@ -302,7 +442,8 @@ function setStatus(kind, msg) {
 
 function schedule() {
   clearTimeout(timer);
-  timer = setTimeout(() => translateNow(false), 350);
+  if (!SETTINGS.auto_translate) return;   // manual mode: blur / ⌘+Enter triggers it
+  timer = setTimeout(() => translateNow(false), SETTINGS.debounce_ms || 350);
 }
 
 function swapLangs() {
@@ -491,6 +632,79 @@ function replaceRange(range, text) {
     range.insertNode(document.createTextNode(text));
   }
   updateResetBtn();
+}
+
+// ---- Settings --------------------------------------------------------------
+const FIELD_MAP = {
+  theme:           { id: "set_theme",           type: "value" },
+  font_size:       { id: "set_font_size",       type: "num" },
+  auto_translate:  { id: "set_auto_translate",  type: "bool" },
+  debounce_ms:     { id: "set_debounce_ms",     type: "num" },
+  temperature:     { id: "set_temperature",     type: "num" },
+  max_tokens:      { id: "set_max_tokens",      type: "num" },
+  idle_unload_sec: { id: "set_idle_unload_sec", type: "num" },
+};
+
+async function loadSettings() {
+  try {
+    const d = await (await fetch("/api/settings")).json();
+    SETTINGS = d.settings || {};
+    SETTINGS_DEFAULTS = d.defaults || {};
+  } catch (e) { SETTINGS = SETTINGS || {}; }
+  applySettings();
+}
+
+function applySettings() {
+  const r = document.documentElement;
+  const t = SETTINGS.theme;
+  if (t === "dark" || t === "light") r.setAttribute("data-theme", t);
+  else r.removeAttribute("data-theme");
+  r.style.setProperty("--io-font", (SETTINGS.font_size || 21) + "px");
+}
+
+function updateSliderLabel(id) {
+  const el = $(id), lbl = $(id + "_val");
+  if (lbl && SLIDERS[id]) lbl.textContent = SLIDERS[id](el.value);
+}
+
+function applyToForm(obj) {
+  for (const [key, f] of Object.entries(FIELD_MAP)) {
+    if (!(key in obj)) continue;
+    const el = $(f.id);
+    if (f.type === "bool") el.checked = !!obj[key];
+    else el.value = obj[key];
+  }
+  for (const id of Object.keys(SLIDERS)) updateSliderLabel(id);
+}
+
+function readForm() {
+  const patch = {};
+  for (const [key, f] of Object.entries(FIELD_MAP)) {
+    const el = $(f.id);
+    if (f.type === "bool") patch[key] = el.checked;
+    else if (f.type === "num") patch[key] = Number(el.value);
+    else patch[key] = el.value;
+  }
+  return patch;
+}
+
+function openSettings() { applyToForm(SETTINGS); $("settingsModal").hidden = false; }
+function closeSettings() { $("settingsModal").hidden = true; }
+
+async function saveSettings() {
+  const patch = readForm();
+  try {
+    const res = await fetch("/api/settings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const d = await res.json();
+    SETTINGS = d.settings || Object.assign({}, SETTINGS, patch);
+  } catch (e) {
+    SETTINGS = Object.assign({}, SETTINGS, patch);   // still apply locally
+  }
+  applySettings();
+  closeSettings();
 }
 
 init();

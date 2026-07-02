@@ -19,6 +19,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import engines
+import settings
 from languages import LANGUAGES, normalize_code
 
 HOST = os.environ.get("AUTO_TRANSLATE_HOST", "127.0.0.1")
@@ -113,11 +114,13 @@ class Handler(BaseHTTPRequestHandler):
             )
         elif self.path == "/api/logs":
             self._send_json({"lines": list(LOG_BUFFER)})
+        elif self.path == "/api/settings":
+            self._send_json({"settings": settings.get(), "defaults": settings.DEFAULTS})
         else:
             self.send_error(404)
 
     def do_POST(self):
-        if self.path not in ("/api/translate", "/api/alternatives"):
+        if self.path not in ("/api/translate", "/api/alternatives", "/api/settings"):
             self.send_error(404)
             return
         try:
@@ -125,6 +128,13 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
         except (ValueError, json.JSONDecodeError):
             self._send_json({"error": "bad request"}, status=400)
+            return
+
+        if self.path == "/api/settings":
+            patch = payload if isinstance(payload, dict) else {}
+            new = settings.update(patch)
+            log(f"settings updated: {patch}")
+            self._send_json({"settings": new})
             return
 
         if self.path == "/api/alternatives":

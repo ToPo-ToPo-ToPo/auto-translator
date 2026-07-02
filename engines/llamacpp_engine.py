@@ -32,7 +32,6 @@ _lock = threading.Lock()
 _llm = None
 _resolved_path = None
 _last_used = 0.0
-_idle_timeout = _idle.timeout_sec()
 _watcher_started = False
 
 
@@ -109,10 +108,11 @@ def unload():
     """Drop the resident LLM so its memory is freed. Idempotent and safe to call
     from the idle watcher (re-checks idleness under the lock)."""
     global _llm
+    timeout = _idle.timeout_sec()
     with _lock:
         if _llm is None:
             return
-        if time.monotonic() - _last_used < _idle_timeout:
+        if timeout > 0 and time.monotonic() - _last_used < timeout:
             return
         _llm = None
     _idle.free_accelerator_memory()
@@ -126,6 +126,7 @@ def _lang(code):
 def translate(text, src, tgt, on_status=None):
     if not text.strip():
         return ""
+    import settings
     with _lock:
         llm = _ensure_loaded(on_status)
         src_name = "the source language" if src == "auto" else _lang(src)
@@ -143,8 +144,8 @@ def translate(text, src, tgt, on_status=None):
                     "content": f"Translate from {src_name} to {_lang(tgt)}:\n\n{text}",
                 },
             ],
-            max_tokens=max(64, len(text) * 3),
-            temperature=0.2,
+            max_tokens=settings.max_tokens(max(64, len(text) * 3)),
+            temperature=settings.temperature(),
         )
         global _last_used
         _last_used = time.monotonic()
