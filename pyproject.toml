@@ -1,6 +1,6 @@
 [project]
 name = "auto-translator"
-version = "1.0.0"
+version = "1.1.0"
 description = "Offline-first local translation app: browser GUI + Argos Translate (NMT) and an optional llama.cpp small-LLM engine (Gemma 4)."
 readme = "README.md"
 requires-python = ">=3.10"
