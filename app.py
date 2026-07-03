@@ -18,8 +18,10 @@ import traceback
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import detection
 import engines
-from languages import LANGUAGES, normalize_code
+import settings
+from languages import LANGUAGES
 
 HOST = os.environ.get("AUTO_TRANSLATE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("AUTO_TRANSLATE_PORT", "8765"))
@@ -61,13 +63,6 @@ class _Tee:
         return False
 
 
-def detect_language(text):
-    """Best-effort source detection. Returns an ISO code or None."""
-    try:
-        from langdetect import detect
-        return normalize_code(detect(text))
-    except Exception:
-        return None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -113,11 +108,13 @@ class Handler(BaseHTTPRequestHandler):
             )
         elif self.path == "/api/logs":
             self._send_json({"lines": list(LOG_BUFFER)})
+        elif self.path == "/api/settings":
+            self._send_json({"settings": settings.get(), "defaults": settings.DEFAULTS})
         else:
             self.send_error(404)
 
     def do_POST(self):
-        if self.path != "/api/translate":
+        if self.path not in ("/api/translate", "/api/alternatives", "/api/settings"):
             self.send_error(404)
             return
         try:
@@ -125,6 +122,17 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
         except (ValueError, json.JSONDecodeError):
             self._send_json({"error": "bad request"}, status=400)
+            return
+
+        if self.path == "/api/settings":
+            patch = payload if isinstance(payload, dict) else {}
+            new = settings.update(patch)
+            log(f"settings updated: {patch}")
+            self._send_json({"settings": new})
+            return
+
+        if self.path == "/api/alternatives":
+            self._handle_alternatives(payload)
             return
 
         text = payload.get("text", "")
@@ -137,11 +145,18 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         detected = None
+        tgt_used = None
         if src == "auto":
-            detected = detect_language(text)
+            detected = detection.detect(text)
             src = detected or "en"
+            if src == tgt:
+                # Typing in the language you're translating INTO (e.g. Japanese
+                # text with the default target 日本語) used to echo the input
+                # back. Translate to the alternate language instead.
+                tgt = "en" if tgt != "en" else "ja"
+                tgt_used = tgt
 
-        if src == tgt:
+        if src == tgt:  # user explicitly chose the same languages — echo as-is
             self._send_json({"translation": text, "detected": detected or src})
             return
 
@@ -169,9 +184,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             result = engine.translate(text, src, tgt, on_status=on_status)
             log(f"  ✓ ok ({len(result)} chars)")
-            self._send_json(
-                {"translation": result, "detected": detected or src}
-            )
+            resp = {"translation": result, "detected": detected or src}
+            if tgt_used:
+                resp["tgt_used"] = tgt_used
+            self._send_json(resp)
         except Exception as e:
             log(f"  ✗ ERROR [{engine_name}]: {type(e).__name__}: {e}")
             tb = traceback.format_exc()
@@ -181,6 +197,51 @@ class Handler(BaseHTTPRequestHandler):
                 {"error": str(e), "detected": detected or src},
                 status=200,
             )
+
+
+    def _handle_alternatives(self, payload):
+        """Post-edit helper: alternative wordings for a selected word/phrase in
+        the translation. Only LLM engines (Gemma) support this; others (and a
+        not-yet-downloaded model) return unsupported so the UI can say why."""
+        sentence = payload.get("sentence", "")
+        selection = payload.get("selection", "")
+        src = payload.get("src", "auto")
+        tgt = payload.get("tgt", "en")
+        engine_name = payload.get("engine") or engines.default_engine_name()
+
+        if not selection.strip():
+            self._send_json({"alternatives": []})
+            return
+        try:
+            engine = engines.get_engine(engine_name)
+        except KeyError:
+            self._send_json({"alternatives": [], "unsupported": True,
+                             "reason": f"エンジン '{engine_name}' は利用できません。"})
+            return
+
+        fn = getattr(engine, "alternatives", None)
+        if not fn or not engine.is_available():
+            self._send_json(
+                {"alternatives": [], "unsupported": True,
+                 "reason": "言い換え候補は LLM エンジン（Gemma）を選択したときに利用できます。"}
+            )
+            return
+        if getattr(engine, "pending_download", lambda: None)():
+            self._send_json(
+                {"alternatives": [], "unsupported": True,
+                 "reason": "モデル未取得のため候補を出せません。先に翻訳してモデルを読み込んでください。"}
+            )
+            return
+
+        log(f"alternatives engine={engine_name} tgt={tgt} sel='{selection[:40]}'")
+        try:
+            alts = fn(sentence, selection, src, tgt,
+                      on_status=lambda s: log(f"  … {s}"))
+            log(f"  ✓ {len(alts)} 候補")
+            self._send_json({"alternatives": alts})
+        except Exception as e:
+            log(f"  ✗ alternatives ERROR [{engine_name}]: {type(e).__name__}: {e}")
+            self._send_json({"alternatives": [], "error": str(e)})
 
 
 class Server(ThreadingHTTPServer):
@@ -206,6 +267,9 @@ def main():
         log(f"  engine {e['name']}: {'available' if e['available'] else 'unavailable'}"
             + (f" — {e['reason']}" if e.get('reason') else ""))
     log(f"  default engine: {engines.default_engine_name()}")
+    # Load the language detector in the background so the first translation
+    # doesn't pay for it (and concurrent first requests can't race the init).
+    detection.prewarm()
 
     # Serve in the background; the GUI window (or browser) is the foreground.
     threading.Thread(target=server.serve_forever, daemon=True).start()

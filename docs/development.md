@@ -10,6 +10,7 @@ web/index.html        UI（素のJS。入力連動の自動翻訳、ログパネ
 engines/              プラガブルなバックエンド（argos / mlx / mlx-e4b / llamacpp）。遅延import
 tools/build_mlx_model.py  公式重みからローカルMLXモデルを変換（e2b/e4b/all）
 languages.py          言語リストとコード正規化
+detection.py          言語自動検出（スクリプト判定 + langdetect。決定的・対応言語に限定）
 ```
 
 UIはローカルWebView（macOSは WKWebView）でHTML/JSを表示し、裏でPythonサーバが
