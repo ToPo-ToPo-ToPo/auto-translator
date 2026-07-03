@@ -30,6 +30,23 @@ AUTO_TRANSLATE_BROWSER=1 uv run python app.py
 rm -rf ~/.cache/huggingface/hub/models--ToPo-ToPo--gemma-4-E2B-it-qat-mlx-4bit
 ```
 
+## MLX（Gemma）に切替えると「'str' object has no attribute '__module__'」
+
+`transformers 5.13.0` が `mlx-lm` のトークナイザ登録と非互換で、`import mlx_vlm`
+時に失敗します（MLXエンジンへ切替えた瞬間に発生）。本アプリは `transformers<5.13`
+に制約済みです。古い環境でこのエラーが出る場合は、依存を入れ直してください:
+
+```bash
+uv sync
+```
+
+それでも `transformers` が 5.13 のままなら、明示的に固定して同期します:
+
+```bash
+uv lock && uv sync
+uv run python -c "import importlib.metadata as m; print(m.version('transformers'))"  # 5.12.x になればOK
+```
+
 ## アプリがDockでバウンドするだけで起動しない
 
 初回は依存準備に時間がかかることがあります。少し待っても開かない場合は、ターミナルで
