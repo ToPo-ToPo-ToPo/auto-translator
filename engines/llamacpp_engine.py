@@ -168,4 +168,29 @@ def alternatives(sentence, selection, src, tgt, on_status=None):
         )
         global _last_used
         _last_used = time.monotonic()
-    return parse_alternatives(resp["choices"][0]["message"]["content"], selection)
+    return parse_alternatives(resp["choices"][0]["message"]["content"], selection,
+                              sentence=sentence)
+
+
+def rephrase(source_text, sentence, selection, replacement, src, tgt, on_status=None):
+    """Rewrite the whole translation so it uses `replacement` (the wording the
+    user picked) naturally — the DeepL-style re-flow after choosing an
+    alternative. Returns the revised translation."""
+    if not (sentence.strip() and replacement.strip()):
+        return sentence
+    from engines._llm_util import parse_rephrase, rephrase_prompt
+
+    with _lock:
+        llm = _ensure_loaded(on_status)
+        resp = llm.create_chat_completion(
+            messages=[{
+                "role": "user",
+                "content": rephrase_prompt(source_text, sentence, selection,
+                                           replacement, src, tgt),
+            }],
+            max_tokens=max(128, len(sentence) * 3),
+            temperature=0.2,
+        )
+        global _last_used
+        _last_used = time.monotonic()
+    return parse_rephrase(resp["choices"][0]["message"]["content"], sentence)

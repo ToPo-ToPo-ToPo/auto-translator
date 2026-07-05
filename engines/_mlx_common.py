@@ -243,4 +243,28 @@ class MlxModel:
                            temperature=0.6, verbose=False)
             self._last_used = time.monotonic()
         raw = res if isinstance(res, str) else getattr(res, "text", str(res))
-        return parse_alternatives(raw, selection)
+        return parse_alternatives(raw, selection, sentence=sentence)
+
+    def rephrase(self, source_text, sentence, selection, replacement,
+                 src, tgt, on_status=None):
+        """Rewrite the whole translation so it uses `replacement` (the wording
+        the user picked) naturally — the DeepL-style re-flow after choosing an
+        alternative. Returns the revised translation."""
+        if not (sentence.strip() and replacement.strip()):
+            return sentence
+        from mlx_vlm import generate
+        from mlx_vlm.prompt_utils import apply_chat_template
+
+        from engines._llm_util import parse_rephrase, rephrase_prompt
+
+        with self._lock:
+            (model, processor), config = self._ensure(on_status)
+            msg = rephrase_prompt(source_text, sentence, selection,
+                                  replacement, src, tgt)
+            prompt = apply_chat_template(processor, config, msg, num_images=0)
+            res = generate(model, processor, prompt,
+                           max_tokens=max(128, len(sentence) * 3),
+                           temperature=0.2, verbose=False)
+            self._last_used = time.monotonic()
+        raw = res if isinstance(res, str) else getattr(res, "text", str(res))
+        return parse_rephrase(raw, sentence)
