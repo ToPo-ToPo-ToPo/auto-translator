@@ -15,7 +15,6 @@ import json
 import os
 import sys
 import threading
-import time
 import traceback
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -30,13 +29,13 @@ PORT = int(os.environ.get("AUTO_TRANSLATE_PORT", "8765"))
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(APP_DIR, "web")
 
-# ---- Auto-reload -------------------------------------------------------------
-# A watcher thread fingerprints the source files; when they change on disk the
-# process exits with RESTART_EXIT_CODE and the .app launch script restarts it,
-# so edits take effect without re-adding the app to the Dock. Web-only changes
-# don't need a restart (files are served from disk) — the page polls
-# /api/version and reloads itself.
-RESTART_EXIT_CODE = 87
+# ---- Update-on-launch --------------------------------------------------------
+# No continuous watching: at Dock-click time the launch script asks the running
+# server (GET /api/version) whether the code it was started from still matches
+# what's on disk. If not, the launcher stops it and starts fresh, so edits take
+# effect without re-adding the app to the Dock. Web-only changes don't need a
+# restart (files are served from disk) — the page polls /api/version and
+# reloads itself.
 
 
 def _fingerprint(patterns):
@@ -61,19 +60,6 @@ def web_fingerprint():
 
 
 CODE_FP = code_fingerprint()  # what this process was started from
-
-
-def watch_sources():
-    """Poll the source files; on change, exit so the launcher restarts us with
-    the new code. Re-checks once after a short pause so we don't restart in the
-    middle of an editor's multi-file save."""
-    while True:
-        time.sleep(1.5)
-        if code_fingerprint() == CODE_FP:
-            continue
-        time.sleep(0.7)   # let the save settle
-        log("ソースコードの変更を検出しました。再起動します…")
-        os._exit(RESTART_EXIT_CODE)
 
 # ---- In-memory log buffer (shown in the UI, copyable for debugging) ---------
 LOG_BUFFER = collections.deque(maxlen=2000)
@@ -157,9 +143,14 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/logs":
             self._send_json({"lines": list(LOG_BUFFER)})
         elif self.path == "/api/version":
-            # code: fixed at process start (changes only via restart);
+            # code: fixed at process start; current: whether it still matches
+            # the disk (the launcher restarts us at Dock click when it doesn't);
             # web: live from disk, so the page can reload on frontend edits.
-            self._send_json({"code": CODE_FP, "web": web_fingerprint()})
+            self._send_json({
+                "code": CODE_FP,
+                "current": code_fingerprint() == CODE_FP,
+                "web": web_fingerprint(),
+            })
         elif self.path == "/api/settings":
             self._send_json({"settings": settings.get(), "defaults": settings.DEFAULTS})
         else:
@@ -369,11 +360,11 @@ def main():
     # Serve in the background; the GUI window (or browser) is the foreground.
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
-    # Auto-reload: restart (via the launcher's loop) when the source changes.
+    # Set by the launcher when it just replaced a stale instance: a UI (window
+    # or browser tab) already existed, so don't open a duplicate browser tab.
     restarted = bool(os.environ.get("AUTO_TRANSLATE_RESTARTED"))
     if restarted:
-        log("ソース変更により再起動しました。")
-    threading.Thread(target=watch_sources, daemon=True).start()
+        log("ソース変更を反映して起動し直しました。")
 
     headless = "--no-window" in sys.argv or os.environ.get("AUTO_TRANSLATE_NO_WINDOW")
     # Browser mode: use the real default browser (reliable IME/日本語入力) instead

@@ -22,13 +22,14 @@ cd "$PROJECT"
 URL="http://127.0.0.1:8765"
 PORT=8765
 
-# Already running? A current build answers /api/version (and restarts itself
-# when the source changes), so just leave it be. A server that answers
-# /api/config but not /api/version predates auto-reload — stop it and start
-# fresh so code changes take effect from a Dock click.
+# Already running? Ask the server whether the code it was started from still
+# matches what's on disk (GET /api/version -> {"current": true/false}). Up to
+# date -> leave it be. Stale (source was edited since it started) or an old
+# build without /api/version -> stop it and start fresh, so a Dock click picks
+# up code changes without re-adding the app to the Dock.
+RESTARTED=""
 if curl -s -o /dev/null --max-time 1 "$URL/api/config"; then
-  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 1 "$URL/api/version")"
-  if [ "$code" = "200" ]; then
+  if curl -s --max-time 1 "$URL/api/version" | grep -q '"current": true'; then
     exit 0
   fi
   lsof -ti tcp:$PORT | xargs kill 2>/dev/null || true
@@ -36,6 +37,7 @@ if curl -s -o /dev/null --max-time 1 "$URL/api/config"; then
     curl -s -o /dev/null --max-time 1 "$URL/api/config" || break
     sleep 0.5
   done
+  RESTARTED=1   # a UI already existed; the app skips opening a duplicate tab
 fi
 
 LOG="$PROJECT/app.log"
@@ -63,18 +65,6 @@ UV="$(find_uv)" || {
 "$UV" sync >>"$LOG" 2>&1
 
 # Run the app: it serves locally and opens its own native window (pywebview).
-# Auto-reload: when the source changes on disk the app exits with code 87 and
-# this loop restarts it (uv run re-syncs deps too), so edits take effect
-# without re-adding the app to the Dock. Any other exit code ends the app.
-set +e
-RESTARTED=""
-CHILD=""
-trap '[ -n "$CHILD" ] && kill "$CHILD" 2>/dev/null' TERM INT
-while :; do
-  AUTO_TRANSLATE_RESTARTED="$RESTARTED" "$UV" run python app.py >>"$LOG" 2>&1 &
-  CHILD=$!
-  wait "$CHILD"
-  CODE=$?
-  [ "$CODE" -eq 87 ] || exit "$CODE"
-  RESTARTED=1
-done
+# This process == the app's lifetime; closing the window exits it.
+export AUTO_TRANSLATE_RESTARTED="$RESTARTED"
+exec "$UV" run python app.py >>"$LOG" 2>&1
