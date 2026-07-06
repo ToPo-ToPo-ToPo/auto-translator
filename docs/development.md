@@ -20,8 +20,7 @@ UIはローカルWebView（macOSは WKWebView）でHTML/JSを表示し、裏でP
 
 ## 依存の構成（コア + 任意 extra）
 
-`pip install auto-translator` や `uv sync`（extra 無し）で、アプリに必要なものは
-一通り入ります。
+`uv sync`（extra 無し）で、アプリに必要なものは一通り入ります。
 
 - **コア:** `argostranslate` / `langdetect` / `huggingface-hub` / `pywebview`
   — 翻訳（既定の Argos エンジン）+ 言語検出 + デスクトップウインドウ。
@@ -39,9 +38,8 @@ UIはローカルWebView（macOSは WKWebView）でHTML/JSを表示し、裏でP
 | `llamacpp` | `llama-cpp-python` | Gemma 4（GGUF）エンジン。クロスプラットフォーム |
 
 ```bash
-pip install "auto-translator"            # アプリ一式（Argos + GUI、Apple SiliconではMLXも）
-pip install "auto-translator[llamacpp]"  # 上記 + llama.cpp エンジン
-uv sync                                  # ローカル開発（.app と同じ構成）
+uv sync                     # アプリ一式（Argos + GUI、Apple SiliconではMLXも）
+uv sync --extra llamacpp    # 上記 + llama.cpp エンジン
 ```
 
 `.app` のランチャーは `uv sync` を実行します。GUI(pywebview) と MLX(Apple Silicon)

@@ -32,6 +32,7 @@ git clone https://github.com/ToPo-ToPo-ToPo/auto-translator.git
 - [トラブルシューティング](docs/troubleshooting.md)（日本語入力が効かない時など）
 - [アンインストール](docs/uninstall.md)
 - [開発・自作モデル](docs/development.md)
+- [変更履歴（CHANGELOG）](CHANGELOG.md)
 
 ## ライセンス
 
