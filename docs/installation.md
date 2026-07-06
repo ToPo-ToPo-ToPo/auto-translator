@@ -56,11 +56,12 @@ uv run python app.py
 AUTO_TRANSLATE_BROWSER=1 uv run python app.py
 ```
 
-> **依存はコア最小 + 任意 extra です。** extra 無しの `uv sync` では GUI(pywebview)
-> も LLM も入りません（Argos 翻訳のヘッドレス利用向け）。GUI は `--extra gui`、
-> MLX(Gemma) は `--extra mlx`、両方まとめてなら `--extra app` を付けてください。
-> `.app` からのダブルクリック起動は自動で `--extra gui --extra mlx` を入れます。
-> 詳細は [development.md](development.md#依存の構成コア--任意-extra) を参照。
+> **GUI(pywebview) は任意 extra です。** extra 無しの `uv sync` では GUI が入らず、
+> ヘッドレス（Argos 翻訳ライブラリ）用途向けになります。GUIウインドウを使うなら
+> `--extra gui` を付けてください。MLX(Gemma) エンジンは Apple Silicon の Mac では
+> コア依存として自動導入されます（extra 不要）。`.app` からのダブルクリック起動は
+> 自動で `--extra gui` を入れます。詳細は
+> [development.md](development.md#依存の構成コア--任意-extra) を参照。
 
 ### Windows
 - ウインドウ表示には **WebView2 ランタイム**が必要です（Windows 10/11 は通常導入済み。

@@ -150,21 +150,15 @@ dependencies = [
     { name = "argostranslate" },
     { name = "huggingface-hub" },
     { name = "langdetect" },
+    { name = "mlx-vlm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
 ]
 
 [package.optional-dependencies]
-app = [
-    { name = "mlx-vlm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
-    { name = "pywebview" },
-]
 gui = [
     { name = "pywebview" },
 ]
 llamacpp = [
     { name = "llama-cpp-python" },
-]
-mlx = [
-    { name = "mlx-vlm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
 ]
 
 [package.metadata]
@@ -173,12 +167,10 @@ requires-dist = [
     { name = "huggingface-hub", specifier = ">=0.20" },
     { name = "langdetect", specifier = ">=1.0.9" },
     { name = "llama-cpp-python", marker = "extra == 'llamacpp'", specifier = ">=0.3" },
-    { name = "mlx-vlm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'app'", specifier = "==0.6.3" },
-    { name = "mlx-vlm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'mlx'", specifier = "==0.6.3" },
-    { name = "pywebview", marker = "extra == 'app'", specifier = ">=5" },
+    { name = "mlx-vlm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", specifier = "==0.6.3" },
     { name = "pywebview", marker = "extra == 'gui'", specifier = ">=5" },
 ]
-provides-extras = ["gui", "mlx", "llamacpp", "app"]
+provides-extras = ["gui", "llamacpp"]
 
 [[package]]
 name = "blis"
