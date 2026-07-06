@@ -4,7 +4,8 @@
 
 ```
 auto-translator.app   ダブルクリック起動の macOS ランチャー（uv sync + uv run app.py）
-pyproject.toml        依存定義（argostranslate / langdetect / pywebview / mlx-vlm、llamacppはextra）
+pyproject.toml        依存定義（コア=argostranslate / langdetect / huggingface-hub。
+                      GUI(pywebview)/MLX(mlx-vlm)/llamacpp は任意 extra）
 app.py                ローカルHTTPサーバ（/api/config, /api/translate, /api/alternatives,
                       /api/rephrase, /api/settings, /api/logs, /api/version）+ ウインドウ起動
 web/index.html        UI（素のJS。入力連動の自動翻訳、言い換え候補、ログパネル）
@@ -16,6 +17,36 @@ detection.py          言語自動検出（スクリプト判定 + langdetect。
 
 UIはローカルWebView（macOSは WKWebView）でHTML/JSを表示し、裏でPythonサーバが
 エンジンを実行する**ハイブリッドのデスクトップアプリ**です。
+
+## 依存の構成（コア + 任意 extra）
+
+ライブラリとしても使えるよう、**コアは最小**にし、重い依存はすべて任意 extra です。
+`pip install auto-translator` や `uv sync`（extra 無し）では以下だけが入ります。
+
+- **コア:** `argostranslate` / `langdetect` / `huggingface-hub`
+  — ヘッドレスな翻訳（既定の Argos エンジン）+ 言語検出。GUI も LLM も不要で
+  `import engines` して使えます。
+
+任意 extra（必要なものだけ opt-in）:
+
+| extra | 追加される依存 | 用途 |
+|---|---|---|
+| `gui` | `pywebview` | デスクトップウインドウ。無い場合はブラウザ表示にフォールバック |
+| `mlx` | `mlx-vlm`（Apple Silicon のみ） | Gemma 4（MLX）エンジン。言い換え候補・文再調整もこれで動作 |
+| `llamacpp` | `llama-cpp-python` | Gemma 4（GGUF）エンジン。クロスプラットフォーム |
+| `app` | `gui` + `mlx` 相当 | デスクトップアプリ一式（`.app` が入れるもの） |
+
+```bash
+pip install "auto-translator"            # 最小（ライブラリ／Argosのみ）
+pip install "auto-translator[app]"       # デスクトップ一式（GUI + MLX）
+pip install "auto-translator[gui]"       # GUIだけ
+pip install "auto-translator[mlx]"       # MLXエンジンだけ
+uv sync --extra gui --extra mlx          # ローカル開発（.app と同じ構成）
+```
+
+`.app` のランチャーは `uv sync --extra gui --extra mlx` を実行するので、
+ダブルクリック起動なら extra は自動で導入されます。`mlx` の依存には
+Apple-Silicon マーカーが付いているため、他プラットフォームでは no-op です。
 
 ## ソース変更の反映（起動時チェック）
 

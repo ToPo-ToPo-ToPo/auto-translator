@@ -149,8 +149,9 @@ class MlxModel:
         import importlib.util
         if importlib.util.find_spec("mlx_vlm") is None:
             return (
-                "MLX（mlx-vlm）が読み込めません。Apple Silicon の Mac で `uv sync` を"
-                "実行すると導入されます。"
+                "MLX（mlx-vlm）が導入されていません（任意エンジン）。Apple Silicon の "
+                "Mac でプロジェクトフォルダにて `uv sync --extra mlx` を実行すると"
+                "導入されます。デスクトップアプリ（.app）から起動すれば自動で導入されます。"
             )
         if not self._model_ready():
             return f"MLXモデルを解決できません: {self.resolve()}"

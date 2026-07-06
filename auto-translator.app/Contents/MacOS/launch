@@ -60,9 +60,12 @@ UV="$(find_uv)" || {
   exit 1
 }
 
-# Ensure the venv + core deps exist (fast no-op once synced). uv provisions a
-# matching Python on its own if needed.
-"$UV" sync >>"$LOG" 2>&1
+# Ensure the venv + the desktop app's deps exist (fast no-op once synced). uv
+# provisions a matching Python on its own if needed. The desktop app needs the
+# GUI window (pywebview) and, on Apple Silicon, the MLX engine — these are
+# opt-in extras (core install is the headless library), so request them here.
+# The mlx marker means the extra is a no-op on non-Apple-Silicon.
+"$UV" sync --extra gui --extra mlx >>"$LOG" 2>&1
 
 # Run the app: it serves locally and opens its own native window (pywebview).
 # This process == the app's lifetime; closing the window exits it.

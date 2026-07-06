@@ -1,25 +1,43 @@
 [project]
 name = "auto-translator"
-version = "1.1.0"
-description = "Offline-first local translation app: browser GUI + Argos Translate (NMT) and an optional llama.cpp small-LLM engine (Gemma 4)."
+version = "1.2.0"
+description = "Offline-first local translation library/app: Argos Translate (NMT) core, with an optional desktop GUI and opt-in small-LLM engines (Gemma 4 via MLX or llama.cpp)."
 readme = "README.md"
 requires-python = ">=3.10"
+# Core = the headless translation library: Argos (default NMT engine) + language
+# detection + model downloads. Importable and usable with no GUI or LLM deps.
+# The desktop window and the LLM engines are opt-in extras below, so consumers
+# who use this as a library don't pull pywebview / mlx-vlm / llama.cpp.
 dependencies = [
     "argostranslate>=1.9",
     "langdetect>=1.0.9",
     "huggingface-hub>=0.20",
-    # Standalone desktop window (native WebView; macOS uses WKWebView, no browser).
-    "pywebview>=5",
-    # MLX small-LLM engine (Apple Silicon). Default LLM on macOS. Pinned to the
-    # version the models were converted with — convert/load must match.
-    "mlx-vlm==0.6.3 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 
 [project.optional-dependencies]
-# llama.cpp engine (Gemma 4 GGUF), opt-in: uv sync --extra llamacpp
-# Off by default — its prebuilt wheel can mismatch the CPU arch (e.g. x86_64 on
-# Apple Silicon). On macOS the MLX engine is the recommended LLM instead.
+# Standalone desktop window (native WebView; macOS uses WKWebView, no browser).
+# Without it the app still runs and falls back to opening the default browser.
+#   uv sync --extra gui   /   pip install "auto-translator[gui]"
+gui = ["pywebview>=5"]
+
+# MLX small-LLM engine (Gemma 4), Apple Silicon only. Opt-in — large model
+# download at first use. Pinned to the version the models were converted with
+# (convert/load must match). Off by default so a plain install stays light.
+#   uv sync --extra mlx   /   pip install "auto-translator[mlx]"
+mlx = ["mlx-vlm==0.6.3 ; sys_platform == 'darwin' and platform_machine == 'arm64'"]
+
+# llama.cpp engine (Gemma 4 GGUF), opt-in. Its prebuilt wheel can mismatch the
+# CPU arch (e.g. x86_64 on Apple Silicon); on macOS prefer the MLX engine.
+#   uv sync --extra llamacpp
 llamacpp = ["llama-cpp-python>=0.3"]
+
+# Everything the double-click desktop app uses: GUI window + MLX (on Apple
+# Silicon). What the .app launcher installs. Convenience for desktop users:
+#   pip install "auto-translator[app]"
+app = [
+    "pywebview>=5",
+    "mlx-vlm==0.6.3 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
 
 [tool.uv]
 # This is a runnable app, not a distributable package — don't try to build it.

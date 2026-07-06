@@ -39,19 +39,28 @@ clone したフォルダ内の **`auto-translator.app` をダブルクリック*
 
 ## Windows / Linux（実験的・未検証）
 
-**対応・検証済みは macOS です。** 中核（Argos翻訳 + pywebview）はクロスプラット
-フォームのため Windows / Linux でも動く見込みですが、**ワンクリック用の `.app` は
-無く、現状は未検証**です。ターミナルから起動してください。
+**対応・検証済みは macOS です。** 中核（Argos翻訳）と GUI(pywebview) は
+クロスプラットフォームのため Windows / Linux でも動く見込みですが、**ワンクリック
+用の `.app` は無く、現状は未検証**です。ターミナルから起動してください
+（GUIウインドウを使う場合は `uv sync --extra gui` が必要）。
 
 共通の前提:
 - [uv](https://docs.astral.sh/uv/) を導入（Win/Linux のインストール手順は uv 公式参照）
 - `git clone` 後、プロジェクトフォルダで実行
 
 ```bash
+# GUIウインドウを使う場合は gui extra を入れる（無い場合はブラウザ表示になる）:
+uv sync --extra gui
 uv run python app.py
 # 単体ウインドウが出ない/不安定な場合は、確実なブラウザ表示にフォールバック:
 AUTO_TRANSLATE_BROWSER=1 uv run python app.py
 ```
+
+> **依存はコア最小 + 任意 extra です。** extra 無しの `uv sync` では GUI(pywebview)
+> も LLM も入りません（Argos 翻訳のヘッドレス利用向け）。GUI は `--extra gui`、
+> MLX(Gemma) は `--extra mlx`、両方まとめてなら `--extra app` を付けてください。
+> `.app` からのダブルクリック起動は自動で `--extra gui --extra mlx` を入れます。
+> 詳細は [development.md](development.md#依存の構成コア--任意-extra) を参照。
 
 ### Windows
 - ウインドウ表示には **WebView2 ランタイム**が必要です（Windows 10/11 は通常導入済み。

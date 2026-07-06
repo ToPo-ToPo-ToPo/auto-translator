@@ -10,6 +10,8 @@ UIのエンジン選択で切り替えます。**既定は Argos**（全OS）。
 
 ## MLX（Gemma 4）— Apple Silicon 専用・任意
 
+- 導入は任意 extra です（`.app` 起動なら自動、手動なら `uv sync --extra mlx`
+  または `pip install "auto-translator[mlx]"`）。
 - UIで「**Gemma 4 E2B (MLX)**」「**Gemma 4 E4B (MLX)**」を選択。高品質。
 - モデルは公開済みリポジトリを**初回利用時に自動DL**します。
   - E2B: [`ToPo-ToPo/gemma-4-E2B-it-qat-mlx-4bit`](https://huggingface.co/ToPo-ToPo/gemma-4-E2B-it-qat-mlx-4bit)（約3.3GB / メモリ約4〜5GB）
