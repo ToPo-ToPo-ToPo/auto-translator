@@ -5,8 +5,9 @@
 ```
 auto-translator.app   ダブルクリック起動の macOS ランチャー（uv sync + uv run app.py）
 pyproject.toml        依存定義（argostranslate / langdetect / pywebview / mlx-vlm、llamacppはextra）
-app.py                ローカルHTTPサーバ（/api/config, /api/translate, /api/logs）+ ウインドウ起動
-web/index.html        UI（素のJS。入力連動の自動翻訳、ログパネル）
+app.py                ローカルHTTPサーバ（/api/config, /api/translate, /api/alternatives,
+                      /api/rephrase, /api/settings, /api/logs, /api/version）+ ウインドウ起動
+web/index.html        UI（素のJS。入力連動の自動翻訳、言い換え候補、ログパネル）
 engines/              プラガブルなバックエンド（argos / mlx / mlx-e4b / llamacpp）。遅延import
 tools/build_mlx_model.py  公式重みからローカルMLXモデルを変換（e2b/e4b/all）
 languages.py          言語リストとコード正規化
@@ -43,6 +44,14 @@ UIはローカルWebView（macOSは WKWebView）でHTML/JSを表示し、裏でP
 - `is_available() -> bool`
 - `translate(text, src, tgt, on_status=None) -> str`
 - 任意: `unavailable_reason()`, `is_applicable()`（OS限定時）, `pending_download()`（DL確認用）
+- 任意（訳文の後編集・LLM向け）:
+  - `alternatives(sentence, selection, src, tgt, on_status=None) -> list[str]`
+    — 選択語の言い換え候補
+  - `rephrase(source_text, sentence, selection, replacement, src, tgt, on_status=None) -> str`
+    — 候補選択後に文全体を再調整（DeepL風）
+
+  これらを実装すると、`/api/config` の当該エンジンに `alternatives` / `rephrase`
+  フラグが立ち、UIが訳文クリックで言い換えメニューを出します（未実装なら無効）。
 
 ## MLXモデルを自分で変換する（任意）
 
