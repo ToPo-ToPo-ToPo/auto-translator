@@ -56,6 +56,7 @@ def list_engines():
                 "label": mod.LABEL,
                 "available": avail,
                 "alternatives": hasattr(mod, "alternatives"),  # LLM post-edit support
+                "rephrase": hasattr(mod, "rephrase"),  # re-flow after picking one
             }
             if not avail:
                 entry["reason"] = _reason(mod) or "利用できません。"

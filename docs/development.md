@@ -4,9 +4,11 @@
 
 ```
 auto-translator.app   ダブルクリック起動の macOS ランチャー（uv sync + uv run app.py）
-pyproject.toml        依存定義（argostranslate / langdetect / pywebview / mlx-vlm、llamacppはextra）
-app.py                ローカルHTTPサーバ（/api/config, /api/translate, /api/logs）+ ウインドウ起動
-web/index.html        UI（素のJS。入力連動の自動翻訳、ログパネル）
+pyproject.toml        依存定義（コア=argostranslate / langdetect / huggingface-hub /
+                      pywebview、Apple Siliconではmlx-vlmもコア。llamacpp は任意 extra）
+app.py                ローカルHTTPサーバ（/api/config, /api/translate, /api/alternatives,
+                      /api/rephrase, /api/settings, /api/logs, /api/version）+ ウインドウ起動
+web/index.html        UI（素のJS。入力連動の自動翻訳、言い換え候補、ログパネル）
 engines/              プラガブルなバックエンド（argos / mlx / mlx-e4b / llamacpp）。遅延import
 tools/build_mlx_model.py  公式重みからローカルMLXモデルを変換（e2b/e4b/all）
 languages.py          言語リストとコード正規化
@@ -15,6 +17,51 @@ detection.py          言語自動検出（スクリプト判定 + langdetect。
 
 UIはローカルWebView（macOSは WKWebView）でHTML/JSを表示し、裏でPythonサーバが
 エンジンを実行する**ハイブリッドのデスクトップアプリ**です。
+
+## 依存の構成（コア + 任意 extra）
+
+`uv sync`（extra 無し）で、アプリに必要なものは一通り入ります。
+
+- **コア:** `argostranslate` / `langdetect` / `huggingface-hub` / `pywebview`
+  — 翻訳（既定の Argos エンジン）+ 言語検出 + デスクトップウインドウ。
+  `pywebview` はクロスプラットフォームで、ウインドウを開けない環境では
+  ブラウザ表示にフォールバックします。
+- **コア（Apple Silicon の macOS のみ）:** `mlx-vlm`
+  — MLX（Gemma 4）エンジン。依存にプラットフォームマーカーが付いているので
+  **Apple Silicon Mac では自動導入**、他OS/Intel Mac では入りません（no-op）。
+  言い換え候補・文再調整もこのエンジンで動作します。
+
+任意 extra（必要なときだけ opt-in）:
+
+| extra | 追加される依存 | 用途 |
+|---|---|---|
+| `llamacpp` | `llama-cpp-python` | Gemma 4（GGUF）エンジン。クロスプラットフォーム |
+
+```bash
+uv sync                     # アプリ一式（Argos + GUI、Apple SiliconではMLXも）
+uv sync --extra llamacpp    # 上記 + llama.cpp エンジン
+```
+
+`.app` のランチャーは `uv sync` を実行します。GUI(pywebview) と MLX(Apple Silicon)
+はどちらもコア依存なので、extra 指定なしで導入されます。
+
+## ソース変更の反映（起動時チェック）
+
+ソースを編集したあと **Dock のアイコンをクリックするだけ**で反映されます。
+`.app` を Dock から入れ直す必要はありません。常時監視はせず、起動時に一度だけ
+確認します。
+
+- **Python（`*.py` / `pyproject.toml`）の変更:** ランチャー（`auto-translator.app`
+  内の `launch`）が起動時に稼働中サーバへ `GET /api/version` を問い合わせます。
+  サーバは「自分が起動したときのソースの指紋」と「現在のディスク内容」を比較して
+  `current: true/false` を返し、古ければランチャーが旧サーバを停止して新しい
+  コードで起動し直します（最新ならそのまま何もしません）。ウインドウは
+  開き直されますが、入力中のテキストは復元されます（10分以内）。
+- **`web/` の変更:** ファイルは毎リクエストにディスクから配信されるため、
+  ページが `/api/version` のポーリングで変更を検知して自動リロードします
+  （サーバ再起動なし・アプリ起動し直しも不要）。
+- 旧バージョン（`/api/version` 未対応）のサーバが動いたまま Dock から起動した
+  場合も、同様に停止して新しいコードで起動し直します。
 
 ## エンジンの追加
 
@@ -25,6 +72,14 @@ UIはローカルWebView（macOSは WKWebView）でHTML/JSを表示し、裏でP
 - `is_available() -> bool`
 - `translate(text, src, tgt, on_status=None) -> str`
 - 任意: `unavailable_reason()`, `is_applicable()`（OS限定時）, `pending_download()`（DL確認用）
+- 任意（訳文の後編集・LLM向け）:
+  - `alternatives(sentence, selection, src, tgt, on_status=None) -> list[str]`
+    — 選択語の言い換え候補
+  - `rephrase(source_text, sentence, selection, replacement, src, tgt, on_status=None) -> str`
+    — 候補選択後に文全体を再調整（DeepL風）
+
+  これらを実装すると、`/api/config` の当該エンジンに `alternatives` / `rephrase`
+  フラグが立ち、UIが訳文クリックで言い換えメニューを出します（未実装なら無効）。
 
 ## MLXモデルを自分で変換する（任意）
 

@@ -271,7 +271,7 @@
         <button class="copy" id="copy">コピー</button>
       </div>
       <div class="output" id="output" contenteditable="true" spellcheck="false"
-           title="ドラッグで選択してコピー・直接編集できます。単語をダブルクリックすると言い換え候補（Gemmaエンジン選択時）"></div>
+           title="ドラッグで選択してコピー・直接編集できます。単語をクリックすると言い換え候補が表示され、選ぶと文全体も自動調整されます（Gemmaエンジン選択時）"></div>
     </section>
   </main>
   <div class="altmenu" id="altmenu" hidden></div>
@@ -343,6 +343,9 @@ async function init() {
 
   setStatus("ready", "準備完了。入力してください。");
 
+  // Auto-reload: restore what was on screen before the page/app restarted.
+  const restored = restoreState();
+
   // Surface any engines that can't be used (e.g. llama.cpp not installed).
   const down = CONFIG.engines.filter((e) => !e.available);
   if (down.length) {
@@ -350,7 +353,10 @@ async function init() {
       down.map((e) => `「${e.label}」は利用できません。\n${e.reason || ""}`).join("\n\n"));
   }
 
-  $("input").addEventListener("input", schedule);
+  $("input").addEventListener("input", () => { saveState(); schedule(); });
+  for (const id of ["engine", "src", "tgt"]) {
+    $(id).addEventListener("change", saveState);
+  }
   // When auto-translate is off, translate on blur or ⌘/Ctrl+Enter instead.
   $("input").addEventListener("blur", () => { if (!SETTINGS.auto_translate) translateNow(false); });
   $("input").addEventListener("keydown", (e) => {
@@ -374,7 +380,8 @@ async function init() {
   }
   $("copy").addEventListener("click", copyOut);
   $("reset").addEventListener("click", resetTranslation);
-  $("output").addEventListener("dblclick", onWordDblClick);
+  // DeepL-style: clicking a word (or selecting a phrase) shows alternatives.
+  $("output").addEventListener("click", onOutputClick);
   $("output").addEventListener("input", updateResetBtn);
   // Dismiss the alternatives popup on outside click / Escape.
   document.addEventListener("mousedown", (e) => {
@@ -393,6 +400,53 @@ async function init() {
   });
   $("logRefresh").addEventListener("click", fetchLogs);
   $("logCopy").addEventListener("click", copyLogs);
+
+  // Auto-reload: watch the server's source fingerprint and reload on change
+  // (web edits are picked up live; code edits restart the server first).
+  pollVersion();
+  setInterval(pollVersion, 2000);
+  if (restored) translateNow(true);
+}
+
+// ---- Auto-reload + state that survives it ----------------------------------
+let VERSION = null;
+async function pollVersion() {
+  try {
+    const v = await (await fetch("/api/version")).json();
+    if (!VERSION) VERSION = v;
+    else if (v.code !== VERSION.code || v.web !== VERSION.web) {
+      location.reload();
+    }
+  } catch (e) { /* server restarting — keep polling, reload when it's back */ }
+}
+
+// What's on screen, saved so an auto-reload (or a quick app restart) doesn't
+// lose the text being worked on. Stale state (old sessions) is not restored.
+const STATE_KEY = "at_state";
+const STATE_MAX_AGE_MS = 10 * 60 * 1000;
+
+function saveState() {
+  try {
+    localStorage.setItem(STATE_KEY, JSON.stringify({
+      t: Date.now(),
+      input: $("input").value,
+      src: $("src").value, tgt: $("tgt").value, engine: $("engine").value,
+    }));
+  } catch (e) { /* private mode etc. — fine, just no restore */ }
+}
+
+function restoreState() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(STATE_KEY) || "null"); } catch (e) {}
+  if (!s || !s.t || Date.now() - s.t > STATE_MAX_AGE_MS) return false;
+  const setSel = (id, val) => {
+    const o = val && [...$(id).options].find((x) => x.value === val && !x.disabled);
+    if (o) $(id).value = val;
+  };
+  setSel("src", s.src); setSel("tgt", s.tgt); setSel("engine", s.engine);
+  if (!s.input || $("input").value.trim()) return false;
+  $("input").value = s.input;
+  return true;
 }
 
 let logTimer = null;
@@ -561,18 +615,63 @@ function resetTranslation() {
   hideAltMenu();
 }
 
-// ---- Post-edit: alternative wording on double-click ------------------------
-function hideAltMenu() { $("altmenu").hidden = true; $("altmenu").innerHTML = ""; }
+// ---- Post-edit: alternative wording on click (DeepL-style) -----------------
+function hideAltMenu() {
+  const m = $("altmenu");
+  m.hidden = true; m.innerHTML = ""; delete m.dataset.word;
+}
 
-async function onWordDblClick(e) {
+// Expand a collapsed caret position to the word around it. Uses Intl.Segmenter
+// so it also works for languages without spaces (日本語 etc.); falls back to a
+// letter/digit scan on engines without Segmenter.
+function wordRangeAt(node, offset) {
+  if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+  const text = node.textContent || "";
+  if (!text.trim()) return null;
+  let start = -1, end = -1;
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    const segs = new Intl.Segmenter(undefined, { granularity: "word" }).segment(text);
+    for (const s of segs) {
+      if (offset >= s.index && offset <= s.index + s.segment.length) {
+        if (!s.isWordLike) return null;      // clicked punctuation/space
+        start = s.index; end = s.index + s.segment.length;
+        break;
+      }
+    }
+  } else {
+    const isWord = (ch) => /[\p{L}\p{N}]/u.test(ch);
+    if (!(offset < text.length && isWord(text[offset]))
+        && !(offset > 0 && isWord(text[offset - 1]))) return null;
+    start = offset; end = offset;
+    while (start > 0 && isWord(text[start - 1])) start--;
+    while (end < text.length && isWord(text[end])) end++;
+  }
+  if (start < 0 || end <= start) return null;
+  const r = document.createRange();
+  r.setStart(node, start); r.setEnd(node, end);
+  return r;
+}
+
+function onOutputClick(e) {
   const eng = CONFIG && CONFIG.engines.find((x) => x.name === $("engine").value);
   if (!eng || !eng.alternatives) return;   // only LLM engines offer alternatives
   const sel = window.getSelection();
-  const word = sel && sel.toString().trim();
-  if (!word) return;
-  const range = sel.getRangeAt(0).cloneRange();
-  const sentence = $("output").textContent;
-  showAltMenu(e.clientX, e.clientY, word, sentence, range);
+  if (!sel || !sel.rangeCount) return;
+  let range;
+  if (!sel.isCollapsed) {
+    range = sel.getRangeAt(0).cloneRange(); // drag / double-click selection
+  } else {
+    const c = sel.getRangeAt(0);
+    range = wordRangeAt(c.startContainer, c.startOffset);
+    if (!range) { hideAltMenu(); return; }  // clicked space/punctuation
+    sel.removeAllRanges();                  // highlight the word being reworded
+    sel.addRange(range.cloneRange());
+  }
+  const word = range.toString().trim();
+  if (!word) { hideAltMenu(); return; }
+  const m = $("altmenu");
+  if (!m.hidden && m.dataset.word === word) return;  // already showing this word
+  showAltMenu(e.clientX, e.clientY, word, $("output").textContent, range);
 }
 
 function positionAltMenu(x, y) {
@@ -585,6 +684,7 @@ function positionAltMenu(x, y) {
 
 async function showAltMenu(x, y, word, sentence, range) {
   const m = $("altmenu");
+  m.dataset.word = word;
   m.innerHTML = `<div class="althead">「${word}」の言い換え</div>`
     + `<div class="altnote">候補を取得中…</div>`;
   positionAltMenu(x, y);
@@ -619,7 +719,7 @@ async function showAltMenu(x, y, word, sentence, range) {
     for (const alt of data.alternatives) {
       const b = document.createElement("button");
       b.textContent = alt;
-      b.onclick = () => { replaceRange(range, alt); hideAltMenu(); };
+      b.onclick = () => { hideAltMenu(); chooseAlternative(range, word, alt); };
       m.appendChild(b);
     }
     positionAltMenu(x, y);
@@ -627,6 +727,41 @@ async function showAltMenu(x, y, word, sentence, range) {
   }
   m.innerHTML = body;
   positionAltMenu(x, y);
+}
+
+// The user picked an alternative: swap it in right away, then (DeepL-style)
+// have the LLM re-flow the whole translation so the choice fits naturally —
+// grammar, particles and agreement around it adjust too.
+async function chooseAlternative(range, word, alt) {
+  replaceRange(range, alt);
+  const eng = CONFIG && CONFIG.engines.find((x) => x.name === $("engine").value);
+  if (!eng || !eng.rephrase) return;       // keep the plain word swap
+  const seq = ++reqSeq;                    // supersedes in-flight translations
+  setStatus("busy", "選んだ言い換えに合わせて文章を調整中…");
+  try {
+    const res = await fetch("/api/rephrase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: $("input").value,
+        sentence: $("output").textContent,
+        selection: word,
+        replacement: alt,
+        src: CONFIG.lastDetected || $("src").value,
+        tgt: $("tgt").value,
+        engine: $("engine").value,
+      }),
+    });
+    const data = await res.json();
+    if (seq !== reqSeq) return;            // user moved on meanwhile
+    if (data.translation && !data.unsupported && !data.error) {
+      $("output").textContent = data.translation;
+      updateResetBtn();
+    }
+    setStatus("ready", "完了");
+  } catch (e) {
+    if (seq === reqSeq) setStatus("ready", "完了");  // word swap still applied
+  }
 }
 
 function replaceRange(range, text) {

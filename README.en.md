@@ -29,6 +29,7 @@ sets itself up and opens a standalone window; type and it translates.
 
 See **[docs/](docs/)** for installation & placement, usage, engines/models &
 configuration, troubleshooting (incl. Japanese IME), uninstall, and development.
+Release history is in the **[CHANGELOG](CHANGELOG.md)**.
 
 ## License
 
