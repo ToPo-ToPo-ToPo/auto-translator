@@ -1,29 +1,25 @@
 [project]
 name = "auto-translator"
 version = "1.2.0"
-description = "Offline-first local translation library/app: Argos Translate (NMT) core, with an optional desktop GUI and opt-in small-LLM engines (Gemma 4 via MLX or llama.cpp)."
+description = "Offline-first local translation app: desktop GUI + Argos Translate (NMT) core, with the MLX small-LLM engine on Apple Silicon and an opt-in llama.cpp engine (Gemma 4)."
 readme = "README.md"
 requires-python = ">=3.10"
-# Core = the headless translation library: Argos (default NMT engine) + language
-# detection + model downloads, plus the MLX small-LLM engine on Apple Silicon.
-# The MLX dep carries a platform marker, so it auto-installs on Apple Silicon
-# macOS (where it's the recommended LLM engine) and is a no-op everywhere else —
-# Windows/Linux/Intel Mac get a light, GUI-free library install. Pinned to the
-# version the models were converted with (convert/load must match).
+# Core: Argos (default NMT engine) + language detection + model downloads, the
+# desktop GUI window, and the MLX small-LLM engine on Apple Silicon.
+# - pywebview: the standalone desktop window (native WebView; macOS WKWebView).
+#   Cross-platform; if it can't open a window the app falls back to the browser.
+# - mlx-vlm: carries a platform marker, so it auto-installs on Apple Silicon
+#   macOS (the recommended LLM engine there) and is a no-op elsewhere. Pinned to
+#   the version the models were converted with (convert/load must match).
 dependencies = [
     "argostranslate>=1.9",
     "langdetect>=1.0.9",
     "huggingface-hub>=0.20",
+    "pywebview>=5",
     "mlx-vlm==0.6.3 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 
 [project.optional-dependencies]
-# Standalone desktop window (native WebView; macOS uses WKWebView, no browser).
-# Opt-in so library consumers don't pull it. Without it the app still runs and
-# falls back to opening the default browser.
-#   uv sync --extra gui   /   pip install "auto-translator[gui]"
-gui = ["pywebview>=5"]
-
 # llama.cpp engine (Gemma 4 GGUF), opt-in. Its prebuilt wheel can mismatch the
 # CPU arch (e.g. x86_64 on Apple Silicon); on macOS prefer the MLX engine.
 #   uv sync --extra llamacpp

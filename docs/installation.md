@@ -41,27 +41,22 @@ clone したフォルダ内の **`auto-translator.app` をダブルクリック*
 
 **対応・検証済みは macOS です。** 中核（Argos翻訳）と GUI(pywebview) は
 クロスプラットフォームのため Windows / Linux でも動く見込みですが、**ワンクリック
-用の `.app` は無く、現状は未検証**です。ターミナルから起動してください
-（GUIウインドウを使う場合は `uv sync --extra gui` が必要）。
+用の `.app` は無く、現状は未検証**です。ターミナルから起動してください。
 
 共通の前提:
 - [uv](https://docs.astral.sh/uv/) を導入（Win/Linux のインストール手順は uv 公式参照）
 - `git clone` 後、プロジェクトフォルダで実行
 
 ```bash
-# GUIウインドウを使う場合は gui extra を入れる（無い場合はブラウザ表示になる）:
-uv sync --extra gui
 uv run python app.py
 # 単体ウインドウが出ない/不安定な場合は、確実なブラウザ表示にフォールバック:
 AUTO_TRANSLATE_BROWSER=1 uv run python app.py
 ```
 
-> **GUI(pywebview) は任意 extra です。** extra 無しの `uv sync` では GUI が入らず、
-> ヘッドレス（Argos 翻訳ライブラリ）用途向けになります。GUIウインドウを使うなら
-> `--extra gui` を付けてください。MLX(Gemma) エンジンは Apple Silicon の Mac では
-> コア依存として自動導入されます（extra 不要）。`.app` からのダブルクリック起動は
-> 自動で `--extra gui` を入れます。詳細は
-> [development.md](development.md#依存の構成コア--任意-extra) を参照。
+> **GUI(pywebview) と MLX はコア依存です。** `uv sync`（extra 無し）でアプリに
+> 必要なものは一通り入ります（GUIウインドウ、Argos 翻訳、Apple Silicon では
+> MLX(Gemma) も）。`llama.cpp` エンジンだけが任意 extra です（`--extra llamacpp`）。
+> 詳細は [development.md](development.md#依存の構成コア--任意-extra) を参照。
 
 ### Windows
 - ウインドウ表示には **WebView2 ランタイム**が必要です（Windows 10/11 は通常導入済み。

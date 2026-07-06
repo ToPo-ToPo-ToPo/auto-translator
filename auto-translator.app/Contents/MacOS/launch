@@ -60,12 +60,10 @@ UV="$(find_uv)" || {
   exit 1
 }
 
-# Ensure the venv + the desktop app's deps exist (fast no-op once synced). uv
-# provisions a matching Python on its own if needed. The desktop app needs the
-# GUI window (pywebview), which is an opt-in extra (core install is the headless
-# library) — request it here. The MLX engine is a core dep with an Apple-Silicon
-# marker, so it installs automatically on this Mac without an extra.
-"$UV" sync --extra gui >>"$LOG" 2>&1
+# Ensure the venv + core deps exist (fast no-op once synced). uv provisions a
+# matching Python on its own if needed. GUI (pywebview) and, on Apple Silicon,
+# the MLX engine are core deps, so a plain sync installs everything the app needs.
+"$UV" sync >>"$LOG" 2>&1
 
 # Run the app: it serves locally and opens its own native window (pywebview).
 # This process == the app's lifetime; closing the window exits it.

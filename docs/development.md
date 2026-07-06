@@ -4,8 +4,8 @@
 
 ```
 auto-translator.app   ダブルクリック起動の macOS ランチャー（uv sync + uv run app.py）
-pyproject.toml        依存定義（コア=argostranslate / langdetect / huggingface-hub、
-                      Apple SiliconではmlxもコアでOK。GUI(pywebview)/llamacpp は任意 extra）
+pyproject.toml        依存定義（コア=argostranslate / langdetect / huggingface-hub /
+                      pywebview、Apple Siliconではmlx-vlmもコア。llamacpp は任意 extra）
 app.py                ローカルHTTPサーバ（/api/config, /api/translate, /api/alternatives,
                       /api/rephrase, /api/settings, /api/logs, /api/version）+ ウインドウ起動
 web/index.html        UI（素のJS。入力連動の自動翻訳、言い換え候補、ログパネル）
@@ -20,32 +20,32 @@ UIはローカルWebView（macOSは WKWebView）でHTML/JSを表示し、裏でP
 
 ## 依存の構成（コア + 任意 extra）
 
-ライブラリとしても使えるよう、GUI などの依存は任意 extra にしています。
-`pip install auto-translator` や `uv sync`（extra 無し）では以下が入ります。
+`pip install auto-translator` や `uv sync`（extra 無し）で、アプリに必要なものは
+一通り入ります。
 
-- **コア:** `argostranslate` / `langdetect` / `huggingface-hub`
-  — ヘッドレスな翻訳（既定の Argos エンジン）+ 言語検出。GUI 不要で
-  `import engines` して使えます。
+- **コア:** `argostranslate` / `langdetect` / `huggingface-hub` / `pywebview`
+  — 翻訳（既定の Argos エンジン）+ 言語検出 + デスクトップウインドウ。
+  `pywebview` はクロスプラットフォームで、ウインドウを開けない環境では
+  ブラウザ表示にフォールバックします。
 - **コア（Apple Silicon の macOS のみ）:** `mlx-vlm`
   — MLX（Gemma 4）エンジン。依存にプラットフォームマーカーが付いているので
   **Apple Silicon Mac では自動導入**、他OS/Intel Mac では入りません（no-op）。
   言い換え候補・文再調整もこのエンジンで動作します。
 
-任意 extra（必要なものだけ opt-in）:
+任意 extra（必要なときだけ opt-in）:
 
 | extra | 追加される依存 | 用途 |
 |---|---|---|
-| `gui` | `pywebview` | デスクトップウインドウ。無い場合はブラウザ表示にフォールバック |
 | `llamacpp` | `llama-cpp-python` | Gemma 4（GGUF）エンジン。クロスプラットフォーム |
 
 ```bash
-pip install "auto-translator"            # ライブラリ（Argos + Apple SiliconではMLXも）
-pip install "auto-translator[gui]"       # デスクトップアプリ一式（GUIウインドウ付き）
-uv sync --extra gui                      # ローカル開発（.app と同じ構成）
+pip install "auto-translator"            # アプリ一式（Argos + GUI、Apple SiliconではMLXも）
+pip install "auto-translator[llamacpp]"  # 上記 + llama.cpp エンジン
+uv sync                                  # ローカル開発（.app と同じ構成）
 ```
 
-`.app` のランチャーは `uv sync --extra gui` を実行します。MLX はコア依存
-（Apple-Silicon マーカー付き）なので、Mac では extra 指定なしで自動導入されます。
+`.app` のランチャーは `uv sync` を実行します。GUI(pywebview) と MLX(Apple Silicon)
+はどちらもコア依存なので、extra 指定なしで導入されます。
 
 ## ソース変更の反映（起動時チェック）
 
